@@ -82,44 +82,57 @@ class _FocusViewState extends State<FocusView> {
                 color: Theme.of(context).colorScheme.surfaceVariant,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _timerService.formattedTime,
-                    style: const TextStyle(
-                      fontSize: 64,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    _timerService.state.mode == TimerMode.work 
-                      ? (_timerService.state.isActive 
-                          ? 'Focus Time' 
-                          : _timerService.isAdjustedGoalReached 
-                              ? 'Goal Reached!' 
-                              : 'Focus Time')
-                      : 'Rest Time',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 10),
-                  // 显示赚取的休息时间
-                  if (_timerService.state.mode == TimerMode.work && _timerService.state.timeInSeconds > 0)
-                    Text(
-                      'Earned Rest: ${(_timerService.state.earnedBreakSeconds ~/ 60).toString().padLeft(2, '0')}:${(_timerService.state.earnedBreakSeconds % 60).toString().padLeft(2, '0')}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  // 显示是否解锁休息
-                  if (_timerService.state.mode == TimerMode.work)
-                    Text(
-                      _timerService.state.isBreakUnlocked ? 'Break Unlocked!' : 'Work to unlock break',
-                      style: TextStyle(
-                        color: _timerService.state.isBreakUnlocked ? Colors.green : Colors.grey,
-                        fontSize: 12,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _timerService.formattedTime,
+                        style: const TextStyle(
+                          fontSize: 64,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                ],
+                      const SizedBox(height: 20),
+                      Text(
+                        _timerService.state.mode == TimerMode.work 
+                          ? (_timerService.state.isActive 
+                              ? 'Focus Time' 
+                              : _timerService.isAdjustedGoalReached 
+                                  ? 'Goal Reached!' 
+                                  : 'Focus Time')
+                          : 'Rest Time',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 10),
+                      // 显示赚取的休息时间（始终占据空间以保持布局稳定）
+                      SizedBox(
+                        height: _timerService.state.mode == TimerMode.work && _timerService.state.timeInSeconds > 0 ? null : 0,
+                        child: Text(
+                          _timerService.state.mode == TimerMode.work && _timerService.state.timeInSeconds > 0
+                            ? 'Earned Rest: ${(_timerService.state.earnedBreakSeconds ~/ 60).toString().padLeft(2, '0')}:${(_timerService.state.earnedBreakSeconds % 60).toString().padLeft(2, '0')}'
+                            : '',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      // 显示是否解锁休息（始终占据空间以保持布局稳定）
+                      SizedBox(
+                        height: _timerService.state.mode == TimerMode.work ? null : 0,
+                        child: Text(
+                          _timerService.state.mode == TimerMode.work
+                            ? (_timerService.state.isBreakUnlocked ? 'Break Unlocked!' : 'Work to unlock break')
+                            : '',
+                          style: TextStyle(
+                            color: _timerService.state.isBreakUnlocked ? Colors.green : Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
