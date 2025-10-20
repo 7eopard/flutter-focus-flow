@@ -1,0 +1,159 @@
+
+{
+  "timestamp": "2025-09-15T10:00:00.000Z",
+  "settings": {
+    "minWorkMins": 30,
+    "theme": "dark",
+    "language": "zh",
+    "defaultDisplayMode": "count up",
+    "knobScrollMode": "natural",
+    "goalMarkerDivision": 4,
+    "realismLevel": "off",
+    "movementType": "mechanical",
+    "secondHandStyle": "traditional_escapement",
+    "defaultZenMode": false,
+    "simpleMode": false,
+    "navJitterMode": "directional",
+    "contentJitterMode": "bidirectional",
+    "jitterInterval": 30,
+    "longPressThreshold": 700,
+    "legacyPhoneMode": false,
+    "legacyTheme": "light",
+    "legacyOrientation": "portrait",
+    "legacyFont": "serif",
+    "legacyAnimationFrameRate": 2,
+    "firstDayOfWeek": "sunday",
+    "dayCrossoverHour": 5
+  },
+  "tasks": [
+    {
+      "id": 1729800001000,
+      "text": "Develop new statistics view",
+      "createdAt": "2025-08-20T18:00:01.000Z",
+      "completedAt": "2025-08-21T17:25:00.000Z",
+      "appliedToSessionId": null,
+      "status": "done"
+    },
+    {
+      "id": 1729800002000,
+      "text": "Fix timezone bug in session titling",
+      "createdAt": "2025-08-28T19:00:00.000Z",
+      "completedAt": null,
+      "appliedToSessionId": null,
+      "status": "todo"
+    },
+    {
+      "id": 1729800003000,
+      "text": "Prepare for product handover meeting",
+      "createdAt": "2025-09-02T12:00:00.000Z",
+      "completedAt": null,
+      "appliedToSessionId": null,
+      "status": "todo"
+    }
+  ],
+  "sessions": [
+    {
+      "id": 1730106000000,
+      "title": "20250908W37Mon",
+      "startTime": "2025-09-07T17:00:00.000Z",
+      "statisticalDateId": "2025-09-08",
+      "endTime": "2025-09-07T17:32:00.000Z",
+      "actualDuration": 1920,
+      "netDuration": 1800,
+      "recordedDuration": 1800,
+      "mft": 30,
+      "pauseCount": 1,
+      "adjustments": [],
+      "totalAdjustment": 0
+    },
+    {
+      "id": 1729501200000,
+      "title": "20250824W34Sun",
+      "startTime": "2025-08-25T01:00:00.000Z",
+      "statisticalDateId": "2025-08-24",
+      "endTime": "2025-08-25T01:48:00.000Z",
+      "actualDuration": 2880,
+      "netDuration": 2820,
+      "recordedDuration": 2700,
+      "mft": 40,
+      "pauseCount": 1,
+      "adjustments": [
+        {
+          "amount": -120,
+          "timestamp": "2025-08-25T01:47:00.000Z"
+        }
+      ],
+      "totalAdjustment": -120
+    },
+    {
+      "id": 1730000400000,
+      "title": "20250912W37Fri",
+      "startTime": "2025-09-12T10:00:00.000Z",
+      "statisticalDateId": "2025-09-12",
+      "endTime": "2025-09-12T11:00:00.000Z",
+      "actualDuration": 3600,
+      "netDuration": 3600,
+      "recordedDuration": 3600,
+      "mft": 50,
+      "pauseCount": 0,
+      "adjustments": [],
+      "totalAdjustment": 0
+    },
+    {
+      "id": 1726423200000,
+      "title": "20250914W37Sun",
+      "startTime": "2025-09-14T18:00:00.000Z",
+      "statisticalDateId": "2025-09-14",
+      "endTime": "2025-09-14T18:25:00.000Z",
+      "actualDuration": 1500,
+      "netDuration": 1500,
+      "recordedDuration": 1500,
+      "mft": 25,
+      "pauseCount": 0,
+      "adjustments": [],
+      "totalAdjustment": 0
+    },
+    {
+      "id": 1702231200000,
+      "title": "20250901W36Mon",
+      "startTime": "2025-08-31T18:00:00.000Z",
+      "statisticalDateId": "2025-09-01",
+      "endTime": "2025-08-31T18:55:00.000Z",
+      "actualDuration": 3300,
+      "netDuration": 3300,
+      "recordedDuration": 3300,
+      "mft": 50,
+      "pauseCount": 0,
+      "adjustments": [],
+      "totalAdjustment": 0
+    },
+    {
+      "id": 1730120400000,
+      "title": "20250908W37Mon",
+      "startTime": "2025-09-07T21:00:00.000Z",
+      "statisticalDateId": "2025-09-08",
+      "endTime": "2025-09-07T21:20:00.000Z",
+      "actualDuration": 1200,
+      "netDuration": 1200,
+      "recordedDuration": 1200,
+      "mft": 20,
+      "pauseCount": 0,
+      "adjustments": [],
+      "totalAdjustment": 0
+    },
+    {
+      "id": 1730043600000,
+      "title": "20250907W36Sun",
+      "startTime": "2025-09-06T22:00:00.000Z",
+      "statisticalDateId": "2025-09-07",
+      "endTime": "2025-09-06T22:35:00.000Z",
+      "actualDuration": 2100,
+      "netDuration": 2100,
+      "recordedDuration": 2100,
+      "mft": 30,
+      "pauseCount": 0,
+      "adjustments": [],
+      "totalAdjustment": 0
+    }
+  ]
+}

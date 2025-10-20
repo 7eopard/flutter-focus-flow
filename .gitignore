@@ -1,0 +1,18 @@
+# Ignore nested .git directories
+**/.git/
+
+# Other common ignores
+**/build/
+**/.dart_tool/
+**/android/.gradle/
+**/ios/.symlinks/
+**/windows/Flutter/ephemeral/
+**/macos/Flutter/ephemeral/
+**/target/
+
+# Environment specific
+.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local

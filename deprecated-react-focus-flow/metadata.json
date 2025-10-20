@@ -1,0 +1,5 @@
+{
+  "name": "Pomodoro",
+  "description": "A powerful combination of a Pomodoro timer, to-do list, and progress statistics to boost your productivity.",
+  "requestFramePermissions": []
+}
