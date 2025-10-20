@@ -1,0 +1,52 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog
+.history
+.svn/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter related
+flutter/build/
+flutter/bin/cache/
+flutter/bin/internal/bin/
+flutter/dev/benchmarks/mega_gallery/
+flutter/dev/benchmarks/mega_gallery_build/
+flutter/dev/bots/.recipe_deps
+flutter/dev/integration_tests/remote_control/
+flutter/dev/integration_tests/web_e2e_tests/firebase/
+flutter/dev/test_data/
+flutter/examples/flutter_gallery/
+flutter/examples/flutter_gallery_build/
+flutter/packages/flutter_tools/test/data/dart_dependencies_test/
+flutter/packages/flutter_tools/test/data/dart_dependencies_test/.dart_tool
+flutter/pkg/test/dds_integration_test/
+flutter/pkg/test/dds_integration_test/.dart_tool
+flutter/test/corpora/
+tool/incremental_data/
+analysis_benchmark.json
+dart_test_results.json
+coverage/
+*.tap
+
+# Android related
+**/android/**
+**/build/**
+**/ios/**
+**/linux/**
+**/macos/**
+**/windows/**
+
+# Files required for Visual Studio Code
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
