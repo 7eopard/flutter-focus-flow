@@ -45,12 +45,18 @@ class _FocusViewState extends State<FocusView> {
     }
   }
 
+  // 检查是否可以进行交互（开始后且暂停时）
+  bool _canInteract() {
+    // 只有在计时器已开始（timeInSeconds > 0）且当前处于暂停状态时才能交互
+    return _timerService.state.timeInSeconds > 0 && !_timerService.state.isActive;
+  }
+
   // 尝试高级休息的方法
   void _tryAdvancedBreak() {
-    if (_timerService.state.mode == TimerMode.rest) {
+    if (!_canInteract()) {
+      _showNotification('Timer must be started and paused to use advanced break.');
+    } else if (_timerService.state.mode == TimerMode.rest) {
       _showNotification('Cannot use advanced break during rest mode.');
-    } else if (_timerService.state.isActive) {
-      _showNotification('Please pause first to use advanced break.');
     } else {
       _timerService.advancedBreak();
     }
@@ -64,20 +70,6 @@ class _FocusViewState extends State<FocusView> {
       appBar: AppBar(
         title: const Text('Focus Timer'),
         centerTitle: true,
-        actions: [
-          // Debug flag in the top right corner
-          IconButton(
-            icon: const Icon(Icons.bug_report),
-            onPressed: () {
-              // Debug functionality can be added here
-              print('Debug mode activated');
-              print('Timer State: ${_timerService.state}');
-              print('Time Adjusted: ${_timerService.state.timeAdjustment}');
-              print('Mode: ${_timerService.state.mode}');
-              print('Is Active: ${_timerService.state.isActive}');
-            },
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -132,168 +124,178 @@ class _FocusViewState extends State<FocusView> {
             ),
           ),
           
-          // Controls area - 使用AnimatedSwitcher保持布局稳定
+          // Controls area - 使用标准的条件渲染保持布局稳定
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return SizeTransition(
-                  sizeFactor: animation,
-                  child: child,
-                );
-              },
+            child: Container(
+              padding: const EdgeInsets.all(20),
               child: 
                 // 调整时间界面
                 _timerService.state.mode == TimerMode.work && 
                 !_timerService.state.isActive && 
                 _timerService.state.timeAdjustment != null
-                ? Container(
-                    key: const ValueKey('adjustment-controls'),
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        // 时间调整按钮组（以0为界）
-                        const Text(
-                          'Time Adjustment',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                ? Column(
+                    children: [
+                      // 时间调整按钮组（以0为界）
+                      const Text(
+                        'Time Adjustment',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 8.0,
+                        runSpacing: 8.0,
+                        children: [
+                          // 减少调整时间
+                          OutlinedButton.icon(
+                            onPressed: _canInteract() 
+                              ? () => _timerService.adjustTime(-300) // 减少5分钟
+                              : null, // 不满足条件时禁用
+                            icon: const Icon(Icons.remove, size: 18),
+                            label: const Text('-5m'),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 8.0,
-                          runSpacing: 8.0,
-                          children: [
-                            // 减少调整时间
-                            OutlinedButton.icon(
-                              onPressed: () => _timerService.adjustTime(-300), // 减少5分钟
-                              icon: const Icon(Icons.remove, size: 18),
-                              label: const Text('-5m'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () => _timerService.adjustTime(-60), // 减少1分钟
-                              icon: const Icon(Icons.remove, size: 18),
-                              label: const Text('-1m'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () => _timerService.adjustTime(-10), // 减少10秒
-                              icon: const Icon(Icons.remove, size: 18),
-                              label: const Text('-10s'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () => _timerService.adjustTime(-1), // 减少1秒
-                              icon: const Icon(Icons.remove, size: 18),
-                              label: const Text('-1s'),
-                            ),
-                            // 重置调整（以0为界）
-                            FilledButton.icon(
-                              onPressed: () {
-                                // 重置到当前时间
-                                _timerService.discardTimeAdjustment();
-                                _timerService.beginTimeAdjustment();
-                              },
-                              icon: const Icon(Icons.refresh, size: 18),
-                              label: const Text('Reset'),
-                            ),
-                            // 增加调整时间
-                            OutlinedButton.icon(
-                              onPressed: () => _timerService.adjustTime(1), // 增加1秒
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('+1s'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () => _timerService.adjustTime(10), // 增加10秒
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('+10s'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () => _timerService.adjustTime(60), // 增加1分钟
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('+1m'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () => _timerService.adjustTime(300), // 增加5分钟
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('+5m'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        // 操作按钮组
-                        const Text(
-                          'Actions',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                          OutlinedButton.icon(
+                            onPressed: _canInteract() 
+                              ? () => _timerService.adjustTime(-60) // 减少1分钟
+                              : null, // 不满足条件时禁用
+                            icon: const Icon(Icons.remove, size: 18),
+                            label: const Text('-1m'),
                           ),
+                          OutlinedButton.icon(
+                            onPressed: _canInteract() 
+                              ? () => _timerService.adjustTime(-10) // 减少10秒
+                              : null, // 不满足条件时禁用
+                            icon: const Icon(Icons.remove, size: 18),
+                            label: const Text('-10s'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: _canInteract() 
+                              ? () => _timerService.adjustTime(-1) // 减少1秒
+                              : null, // 不满足条件时禁用
+                            icon: const Icon(Icons.remove, size: 18),
+                            label: const Text('-1s'),
+                          ),
+                          // 重置调整（以0为界）
+                          FilledButton.icon(
+                            onPressed: _canInteract() 
+                              ? () {
+                                  // 重置到当前时间
+                                  _timerService.discardTimeAdjustment();
+                                  _timerService.beginTimeAdjustment();
+                                }
+                              : null, // 不满足条件时禁用
+                            icon: const Icon(Icons.refresh, size: 18),
+                            label: const Text('Reset'),
+                          ),
+                          // 增加调整时间
+                          OutlinedButton.icon(
+                            onPressed: _canInteract() 
+                              ? () => _timerService.adjustTime(1) // 增加1秒
+                              : null, // 不满足条件时禁用
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('+1s'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: _canInteract() 
+                              ? () => _timerService.adjustTime(10) // 增加10秒
+                              : null, // 不满足条件时禁用
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('+10s'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: _canInteract() 
+                              ? () => _timerService.adjustTime(60) // 增加1分钟
+                              : null, // 不满足条件时禁用
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('+1m'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: _canInteract() 
+                              ? () => _timerService.adjustTime(300) // 增加5分钟
+                              : null, // 不满足条件时禁用
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('+5m'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // 操作按钮组
+                      const Text(
+                        'Actions',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 8.0,
-                          runSpacing: 8.0,
-                          children: [
-                            // 应用调整
-                            FilledButton.icon(
-                              onPressed: _timerService.applyTimeAdjustment,
-                              icon: Icon(Icons.check, size: 18),
-                              label: const Text('Apply & Resume'),
-                            ),
-                            // 丢弃调整
-                            OutlinedButton.icon(
-                              onPressed: _timerService.discardTimeAdjustment,
-                              icon: Icon(Icons.close, size: 18),
-                              label: const Text('Discard & Resume'),
-                            ),
-                            // 高级休息
-                            FilledButton.icon(
-                              onPressed: _tryAdvancedBreak,
-                              icon: Icon(Icons.free_breakfast, size: 18),
-                              label: const Text('Advanced Break'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 8.0,
+                        runSpacing: 8.0,
+                        children: [
+                          // 应用调整
+                          FilledButton.icon(
+                            onPressed: _canInteract() 
+                              ? _timerService.applyTimeAdjustment
+                              : null, // 不满足条件时禁用
+                            icon: Icon(Icons.check, size: 18),
+                            label: const Text('Apply & Resume'),
+                          ),
+                          // 丢弃调整
+                          OutlinedButton.icon(
+                            onPressed: _canInteract() 
+                              ? _timerService.discardTimeAdjustment
+                              : null, // 不满足条件时禁用
+                            icon: Icon(Icons.close, size: 18),
+                            label: const Text('Discard & Resume'),
+                          ),
+                          // 高级休息
+                          FilledButton.icon(
+                            onPressed: _canInteract() 
+                              ? _tryAdvancedBreak
+                              : null, // 不满足条件时禁用
+                            icon: Icon(Icons.free_breakfast, size: 18),
+                            label: const Text('Advanced Break'),
+                          ),
+                        ],
+                      ),
+                    ],
                   )
                 // 暂停状态但未在调整时间时显示开始按钮
                 : _timerService.state.mode == TimerMode.work && 
                   !_timerService.state.isActive && 
                   _timerService.state.timeAdjustment == null
-                  ? Container(
-                      key: const ValueKey('pause-controls'),
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          FilledButton.icon(
-                            onPressed: () => _timerService.beginTimeAdjustment(),
-                            icon: const Icon(Icons.edit),
-                            label: const Text('Adjust Time'),
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size.fromHeight(56),
-                            ),
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: _canInteract() 
+                            ? () => _timerService.beginTimeAdjustment()
+                            : () => _showNotification('Timer must be started and paused to adjust time.'),
+                          icon: const Icon(Icons.edit),
+                          label: const Text('Adjust Time'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(56),
                           ),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: _tryAdvancedBreak,
-                            icon: const Icon(Icons.free_breakfast),
-                            label: const Text('Advanced Break'),
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size.fromHeight(56),
-                            ),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: _canInteract() 
+                            ? _tryAdvancedBreak
+                            : () => _showNotification('Timer must be started and paused to use advanced break.'),
+                          icon: const Icon(Icons.free_breakfast),
+                          label: const Text('Advanced Break'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(56),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     )
                 // 其他状态（如计时期间或休息期间）显示空内容
-                : Container(
-                    key: const ValueKey('no-controls'),
-                    padding: const EdgeInsets.all(20),
-                    child: const SizedBox.shrink(),
-                  ),
+                : const SizedBox.shrink(),
             ),
           ),
         ],
