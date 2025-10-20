@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_focus_flow/services/timer_service.dart';
+import 'package:flutter_focus_flow/services/focus_service.dart';
 import 'package:provider/provider.dart';
 
 class SettingsView extends StatelessWidget {
@@ -7,7 +7,7 @@ class SettingsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timerService = Provider.of<TimerService>(context);
+    final focusService = Provider.of<FocusService>(context);
     
     return Scaffold(
       appBar: AppBar(
@@ -32,9 +32,9 @@ class SettingsView extends StatelessWidget {
             child: ListTile(
               leading: const Icon(Icons.timer),
               title: const Text('Goal'),
-              subtitle: Text('${timerService.state.minWorkDuration ~/ 60} minutes'),
+              subtitle: Text('${focusService.state.minWorkDuration ~/ 60} minutes'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => _showGoalTimeDialog(context, timerService),
+              onTap: () => _showGoalTimeDialog(context, focusService),
             ),
           ),
           const SizedBox(height: 12),
@@ -70,8 +70,8 @@ class SettingsView extends StatelessWidget {
     );
   }
 
-  void _showGoalTimeDialog(BuildContext context, TimerService timerService) {
-    int initialMinutes = (timerService.state.minWorkDuration ~/ 60);
+  void _showGoalTimeDialog(BuildContext context, FocusService focusService) {
+    int initialMinutes = (focusService.state.minWorkDuration ~/ 60);
     int selectedMinutes = initialMinutes;
 
     // 预定义的时间选项
@@ -92,8 +92,7 @@ class SettingsView extends StatelessWidget {
         title: const Text('Set Goal'),
         content: StatefulBuilder(
           builder: (context, setState) {
-            return SizedBox(
-              height: 250,
+            return SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -146,7 +145,7 @@ class SettingsView extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              timerService.setMinFocusTime(selectedMinutes * 60); // 转换为秒
+              focusService.setMinFocusTime(selectedMinutes * 60); // 转换为秒
               Navigator.pop(context);
             },
             child: const Text('Set'),

@@ -1,17 +1,21 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
+// 定义UI状态，用于驱动界面显示
+enum FocusUiState { idle, running, paused, goalMet, adjusting, restingRunning, restingPaused }
+
 // 定义计时器模式
-enum TimerMode { work, rest }
+enum FocusMode { work, rest }
 
 // 干扰级别枚举
 enum InterferenceLevel { zero, weak, strong }
 
 // 定义计时器状态
-class TimerState {
+class FocusState {
   final int timeInSeconds;
   final bool isActive;
-  final TimerMode mode;
+  final FocusMode mode;
+  final FocusUiState uiState; // 新增UI状态字段
   final int breakTotalDuration;
   final int minWorkDuration; // 最小工作时长（秒）
   final int sessionPauseCount; // 会话暂停次数
@@ -22,10 +26,11 @@ class TimerState {
   final bool isBreakUnlocked; // 休息是否已解锁
   final int? timeAdjustment; // 临时时间调整值（秒），null表示无调整
   
-  const TimerState({
+  const FocusState({
     required this.timeInSeconds,
     required this.isActive,
     required this.mode,
+    this.uiState = FocusUiState.idle, // 设置默认值
     required this.breakTotalDuration,
     required this.minWorkDuration,
     required this.sessionPauseCount,
@@ -36,6 +41,38 @@ class TimerState {
     this.isBreakUnlocked = false,
     this.timeAdjustment,
   });
+
+  FocusState copyWith({
+    int? timeInSeconds,
+    bool? isActive,
+    FocusMode? mode,
+    FocusUiState? uiState,
+    int? breakTotalDuration,
+    int? minWorkDuration,
+    int? sessionPauseCount,
+    int? sessionTotalPausedTime,
+    List<TimeAdjustment>? sessionAdjustments,
+    int? longPressThreshold,
+    int? earnedBreakSeconds,
+    bool? isBreakUnlocked,
+    int? timeAdjustment,
+  }) {
+    return FocusState(
+      timeInSeconds: timeInSeconds ?? this.timeInSeconds,
+      isActive: isActive ?? this.isActive,
+      mode: mode ?? this.mode,
+      uiState: uiState ?? this.uiState,
+      breakTotalDuration: breakTotalDuration ?? this.breakTotalDuration,
+      minWorkDuration: minWorkDuration ?? this.minWorkDuration,
+      sessionPauseCount: sessionPauseCount ?? this.sessionPauseCount,
+      sessionTotalPausedTime: sessionTotalPausedTime ?? this.sessionTotalPausedTime,
+      sessionAdjustments: sessionAdjustments ?? this.sessionAdjustments,
+      longPressThreshold: longPressThreshold ?? this.longPressThreshold,
+      earnedBreakSeconds: earnedBreakSeconds ?? this.earnedBreakSeconds,
+      isBreakUnlocked: isBreakUnlocked ?? this.isBreakUnlocked,
+      timeAdjustment: timeAdjustment ?? this.timeAdjustment,
+    );
+  }
 }
 
 // 时间调整记录
@@ -46,12 +83,16 @@ class TimeAdjustment {
   TimeAdjustment({required this.amount, required this.timestamp});
 }
 
-class TimerService extends ChangeNotifier {
+class FocusService extends ChangeNotifier {
   Timer? _timer;
-  TimerState _state = const TimerState(
+  FocusState? _previousState;
+  Timer? _undoTimer;
+  FocusState? get previousState => _previousState;
+
+  FocusState _state = const FocusState(
     timeInSeconds: 0,
     isActive: false,
-    mode: TimerMode.work,
+    mode: FocusMode.work,
     breakTotalDuration: 0,
     minWorkDuration: 1500, // 默认25分钟=1500秒
     sessionPauseCount: 0,
@@ -67,7 +108,7 @@ class TimerService extends ChangeNotifier {
   DateTime? _sessionStartTime;
   DateTime? _pauseStartTime;
 
-  TimerState get state => _state;
+  FocusState get state => _state;
 
   // 获取格式化的时间显示
   String get formattedTime {
@@ -106,7 +147,8 @@ class TimerService extends ChangeNotifier {
   void _updateState({
     int? timeInSeconds,
     bool? isActive,
-    TimerMode? mode,
+    FocusMode? mode,
+    FocusUiState? uiState, // 新增uiState参数
     int? breakTotalDuration,
     int? minWorkDuration,
     int? sessionPauseCount,
@@ -117,10 +159,11 @@ class TimerService extends ChangeNotifier {
     bool? isBreakUnlocked,
     int? timeAdjustment,
   }) {
-    _state = TimerState(
+    _state = FocusState(
       timeInSeconds: timeInSeconds ?? _state.timeInSeconds,
       isActive: isActive ?? _state.isActive,
       mode: mode ?? _state.mode,
+      uiState: uiState ?? _state.uiState, // 更新uiState
       breakTotalDuration: breakTotalDuration ?? _state.breakTotalDuration,
       minWorkDuration: minWorkDuration ?? _state.minWorkDuration,
       sessionPauseCount: sessionPauseCount ?? _state.sessionPauseCount,
@@ -134,16 +177,11 @@ class TimerService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startTimer() {
-    // 如果有临时调整，先应用调整
-    if (_state.timeAdjustment != null) {
-      applyTimeAdjustment();
-    }
-    
+  void startFocus() {
     if (_state.isActive) return; // 如果已经在运行，则不执行操作
 
     // 如果是首次启动，记录开始时间
-    if (_state.timeInSeconds == 0 && _state.mode == TimerMode.work) {
+    if (_state.timeInSeconds == 0 && _state.mode == FocusMode.work) {
       _sessionStartTime = DateTime.now();
     }
 
@@ -154,9 +192,9 @@ class TimerService extends ChangeNotifier {
       _pauseStartTime = null;
     }
 
-    _updateState(isActive: true);
+    _updateState(isActive: true, uiState: FocusUiState.running);
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_state.mode == TimerMode.work) {
+      if (_state.mode == FocusMode.work) {
         final newTime = _state.timeInSeconds + 1;
         final newEarnedBreakSeconds = (newTime / 5).floor();
         final newIsBreakUnlocked = newTime >= _state.minWorkDuration;
@@ -168,10 +206,10 @@ class TimerService extends ChangeNotifier {
         );
         
         // 检查是否达到最小工作目标
-        if (newTime >= _state.minWorkDuration && _state.mode == TimerMode.work) {
-          // 可以在这里添加达到目标的反馈
+        if (newTime >= _state.minWorkDuration && _state.uiState != FocusUiState.goalMet) {
+          _updateState(uiState: FocusUiState.goalMet);
         }
-      } else if (_state.mode == TimerMode.rest) {
+      } else if (_state.mode == FocusMode.rest) {
         if (_state.timeInSeconds > 0) {
           _updateState(timeInSeconds: _state.timeInSeconds - 1);
         } else {
@@ -182,8 +220,11 @@ class TimerService extends ChangeNotifier {
     });
   }
 
-  void pauseTimer() {
+  void pauseFocus() {
     if (!_state.isActive) return; // 如果已经暂停，则不执行操作
+
+    _previousState = _state;
+    _startUndoLifecycle();
 
     _timer?.cancel();
     _timer = null;
@@ -191,24 +232,25 @@ class TimerService extends ChangeNotifier {
     _updateState(
       isActive: false,
       sessionPauseCount: _state.sessionPauseCount + 1,
+      uiState: FocusUiState.paused, // 新增：更新UI状态为暂停
     );
   }
 
-  void toggleTimer() {
+  void toggleFocus() {
     if (_state.isActive) {
-      pauseTimer();
+      pauseFocus();
     } else {
-      startTimer();
+      startFocus();
     }
   }
 
-  void resetTimer() {
+  void resetFocus() {
     _timer?.cancel();
     _timer = null;
     _sessionStartTime = null;
     _pauseStartTime = null;
     _updateState(
-      timeInSeconds: _state.mode == TimerMode.work ? 0 : _state.breakTotalDuration,
+      timeInSeconds: _state.mode == FocusMode.work ? 0 : _state.breakTotalDuration,
       isActive: false,
       earnedBreakSeconds: 0,
       isBreakUnlocked: false,
@@ -216,11 +258,12 @@ class TimerService extends ChangeNotifier {
       sessionPauseCount: 0,
       sessionTotalPausedTime: 0,
       sessionAdjustments: [],
+      uiState: FocusUiState.idle, // 新增：更新UI状态为初始
     );
   }
 
   void startBreak() {
-    if (_state.mode == TimerMode.work && _state.isBreakUnlocked) {
+    if (_state.mode == FocusMode.work && _state.isBreakUnlocked) {
       // 如果有临时调整，先应用调整
       if (_state.timeAdjustment != null) {
         applyTimeAdjustment();
@@ -228,12 +271,30 @@ class TimerService extends ChangeNotifier {
       
       final breakDuration = _state.earnedBreakSeconds;
       _updateState(
-        mode: TimerMode.rest,
+        mode: FocusMode.rest,
         breakTotalDuration: breakDuration,
         timeInSeconds: breakDuration,
+        uiState: FocusUiState.restingRunning, // 新增：更新UI状态为休息中
       );
-      startTimer(); // 自动开始休息计时
+      startFocus(); // 自动开始休息计时
     }
+  }
+
+  void pauseRest() {
+    if (_state.uiState != FocusUiState.restingRunning) return;
+    _timer?.cancel();
+    _timer = null;
+    _updateState(uiState: FocusUiState.restingPaused);
+  }
+
+  void resumeRest() {
+    if (_state.uiState != FocusUiState.restingPaused) return;
+    startFocus(); // 继续倒计时
+  }
+
+  void startNextFocusSession() {
+    endBreak();
+    startFocus();
   }
 
   void endBreak() {
@@ -242,7 +303,7 @@ class TimerService extends ChangeNotifier {
     _sessionStartTime = null;
     _pauseStartTime = null;
     _updateState(
-      mode: TimerMode.work,
+      mode: FocusMode.work,
       timeInSeconds: 0,
       isActive: false,
       breakTotalDuration: 0,
@@ -252,6 +313,7 @@ class TimerService extends ChangeNotifier {
       sessionPauseCount: 0,
       sessionTotalPausedTime: 0,
       sessionAdjustments: [],
+      uiState: FocusUiState.idle, // 新增：更新UI状态为初始
     );
   }
 
@@ -262,7 +324,8 @@ class TimerService extends ChangeNotifier {
 
   // 开始时间调整
   void beginTimeAdjustment() {
-    _updateState(timeAdjustment: 0);
+    if (_state.uiState != FocusUiState.paused) return; // 只能在暂停时调整
+    _updateState(timeAdjustment: 0, uiState: FocusUiState.adjusting);
   }
 
   // 调整时间（在暂停时）
@@ -286,28 +349,30 @@ class TimerService extends ChangeNotifier {
         isBreakUnlocked: isBreakUnlocked,
       );
     }
+    startFocus(); // 应用后恢复计时
   }
 
   // 丢弃时间调整并恢复计时
   void discardTimeAdjustment() {
     _updateState(timeAdjustment: null);
+    startFocus(); // 丢弃后恢复计时
   }
 
   // 高级休息：将当前时间调整到最小专注时间并立即开始休息
   void advancedBreak() {
-    if (_state.mode == TimerMode.work && !_state.isActive) { // 只在暂停时可用
-      // 调整当前时间到最小专注时间
-      final newEarnedBreakSeconds = (_state.minWorkDuration / 5).floor();
-      _updateState(
-        timeInSeconds: _state.minWorkDuration,
-        timeAdjustment: null, // 清除任何临时调整
-        earnedBreakSeconds: newEarnedBreakSeconds,
-        isBreakUnlocked: true,
-      );
-      
-      // 立即开始休息
-      startBreak();
-    }
+    if (_state.uiState != FocusUiState.paused) return; // 只能在暂停时使用
+
+    // 调整当前时间到最小专注时间
+    final newEarnedBreakSeconds = (_state.minWorkDuration / 5).floor();
+    _updateState(
+      timeInSeconds: _state.minWorkDuration,
+      timeAdjustment: null, // 清除任何临时调整
+      earnedBreakSeconds: newEarnedBreakSeconds,
+      isBreakUnlocked: true,
+    );
+    
+    // 立即开始休息
+    startBreak();
   }
 
   void setTime(int seconds) {
@@ -329,9 +394,29 @@ class TimerService extends ChangeNotifier {
     return totalDuration - _state.sessionTotalPausedTime;
   }
 
+  // 撤销上一步操作
+  void undo() {
+    if (_previousState != null) {
+      _state = _previousState!;
+      _previousState = null;
+      _undoTimer?.cancel();
+      notifyListeners();
+    }
+  }
+
+  // 启动撤销计时器
+  void _startUndoLifecycle() {
+    _undoTimer?.cancel();
+    _undoTimer = Timer(const Duration(seconds: 10), () {
+      _previousState = null;
+      notifyListeners();
+    });
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
+    _undoTimer?.cancel();
     super.dispose();
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_focus_flow/utils/theme.dart';
-import 'package:flutter_focus_flow/services/timer_service.dart';
+import 'package:flutter_focus_flow/services/focus_service.dart';
 import 'package:flutter_focus_flow/views/focus_view.dart';
 import 'package:flutter_focus_flow/views/tasks_view.dart';
 import 'package:flutter_focus_flow/views/stats_view.dart';
@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => TimerService(),
+      create: (context) => FocusService(),
       child: MaterialApp(
         title: 'Focus Flow',
         theme: AppTheme.lightTheme,
