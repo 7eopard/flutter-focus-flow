@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 // 定义UI状态，用于驱动界面显示
-enum FocusUiState { idle, running, paused, goalMet, adjusting, restingRunning, restingPaused }
+enum FocusUiState { idle, runningFocus, runningRest, pausedFocus, pausedRest, adjusting, goalMet }
 
 // 定义计时器模式
 enum FocusMode { work, rest }
@@ -25,6 +25,8 @@ class FocusState {
   final int earnedBreakSeconds; // 积累的可休息时间（秒）
   final bool isBreakUnlocked; // 休息是否已解锁
   final int? timeAdjustment; // 临时时间调整值（秒），null表示无调整
+  final int? deltaAdjustment; // Delta时间调整值（秒），用于显示调整变化，null表示无调整
+  final bool hasAppliedAdjustment; // 是否应用了时间调整
   
   const FocusState({
     required this.timeInSeconds,
@@ -40,6 +42,8 @@ class FocusState {
     this.earnedBreakSeconds = 0,
     this.isBreakUnlocked = false,
     this.timeAdjustment,
+    this.deltaAdjustment,
+    this.hasAppliedAdjustment = false,
   });
 
   FocusState copyWith({
@@ -56,6 +60,8 @@ class FocusState {
     int? earnedBreakSeconds,
     bool? isBreakUnlocked,
     int? timeAdjustment,
+    int? deltaAdjustment,
+    bool? hasAppliedAdjustment,
   }) {
     return FocusState(
       timeInSeconds: timeInSeconds ?? this.timeInSeconds,
@@ -71,6 +77,8 @@ class FocusState {
       earnedBreakSeconds: earnedBreakSeconds ?? this.earnedBreakSeconds,
       isBreakUnlocked: isBreakUnlocked ?? this.isBreakUnlocked,
       timeAdjustment: timeAdjustment ?? this.timeAdjustment,
+      deltaAdjustment: deltaAdjustment ?? this.deltaAdjustment,
+      hasAppliedAdjustment: hasAppliedAdjustment ?? this.hasAppliedAdjustment,
     );
   }
 }
@@ -102,6 +110,8 @@ class FocusService extends ChangeNotifier {
     earnedBreakSeconds: 0,
     isBreakUnlocked: false,
     timeAdjustment: null,
+    deltaAdjustment: null,
+    hasAppliedAdjustment: false,
   );
 
   // 记录开始时间
@@ -134,12 +144,37 @@ class FocusService extends ChangeNotifier {
     return _state.timeInSeconds;
   }
   
-  // 获取格式化调整后的时间显示
+  // 获取格式化调整后的时间显示（包含delta调整）
   String get formattedAdjustedTime {
-    final minutes = (adjustedTimeInSeconds / 60).floor();
-    final seconds = adjustedTimeInSeconds % 60;
+    final adjustedTime = _state.timeAdjustment != null 
+        ? _state.timeInSeconds + _state.timeAdjustment! 
+        : _state.timeInSeconds;
+    final minutes = (adjustedTime / 60).floor();
+    final seconds = adjustedTime % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
+  
+  // 获取格式化的delta时间显示
+  String get formattedDeltaAdjustment {
+    if (_state.deltaAdjustment == null) {
+      return '${(_state.timeInSeconds / 60).floor().toString().padLeft(2, '0')}:${(_state.timeInSeconds % 60).toString().padLeft(2, '0')}';
+    }
+    final adjustedTime = _state.timeInSeconds + _state.deltaAdjustment!;
+    final minutes = (adjustedTime / 60).floor();
+    final seconds = adjustedTime % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+  
+  // 获取delta时间调整
+  int get deltaAdjustmentInSeconds {
+    if (_state.deltaAdjustment != null) {
+      return _state.deltaAdjustment!;
+    }
+    return 0;
+  }
+  
+  // 之前的状态是否应用了调整
+  bool get hasAppliedAdjustment => _state.hasAppliedAdjustment;
   
   // 检查调整后是否达到最小工作目标
   bool get isAdjustedGoalReached => adjustedTimeInSeconds >= _state.minWorkDuration;
@@ -158,6 +193,8 @@ class FocusService extends ChangeNotifier {
     int? earnedBreakSeconds,
     bool? isBreakUnlocked,
     int? timeAdjustment,
+    int? deltaAdjustment,
+    bool? hasAppliedAdjustment,
   }) {
     _state = FocusState(
       timeInSeconds: timeInSeconds ?? _state.timeInSeconds,
@@ -173,12 +210,17 @@ class FocusService extends ChangeNotifier {
       earnedBreakSeconds: earnedBreakSeconds ?? _state.earnedBreakSeconds,
       isBreakUnlocked: isBreakUnlocked ?? _state.isBreakUnlocked,
       timeAdjustment: timeAdjustment ?? _state.timeAdjustment,
+      deltaAdjustment: deltaAdjustment ?? _state.deltaAdjustment,
+      hasAppliedAdjustment: hasAppliedAdjustment ?? _state.hasAppliedAdjustment,
     );
     notifyListeners();
   }
 
   void startFocus() {
-    if (_state.isActive) return; // 如果已经在运行，则不执行操作
+    // 如果已经在运行，先取消当前计时器，避免多个计时器实例
+    if (_state.isActive) {
+      _timer?.cancel();
+    }
 
     // 如果是首次启动，记录开始时间
     if (_state.timeInSeconds == 0 && _state.mode == FocusMode.work) {
@@ -192,7 +234,7 @@ class FocusService extends ChangeNotifier {
       _pauseStartTime = null;
     }
 
-    _updateState(isActive: true, uiState: FocusUiState.running);
+    _updateState(isActive: true, uiState: FocusUiState.runningFocus);
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_state.mode == FocusMode.work) {
         final newTime = _state.timeInSeconds + 1;
@@ -223,6 +265,7 @@ class FocusService extends ChangeNotifier {
   void pauseFocus() {
     if (!_state.isActive) return; // 如果已经暂停，则不执行操作
 
+    // 在暂停前保存当前状态，以便undo可以恢复到暂停前的运行状态
     _previousState = _state;
     _startUndoLifecycle();
 
@@ -232,7 +275,8 @@ class FocusService extends ChangeNotifier {
     _updateState(
       isActive: false,
       sessionPauseCount: _state.sessionPauseCount + 1,
-      uiState: FocusUiState.paused, // 新增：更新UI状态为暂停
+      uiState: FocusUiState.adjusting, // 直接进入调整状态
+      deltaAdjustment: 0, // 初始化delta调整值
     );
   }
 
@@ -274,21 +318,28 @@ class FocusService extends ChangeNotifier {
         mode: FocusMode.rest,
         breakTotalDuration: breakDuration,
         timeInSeconds: breakDuration,
-        uiState: FocusUiState.restingRunning, // 新增：更新UI状态为休息中
+        uiState: FocusUiState.runningRest, // 新增：更新UI状态为休息中
       );
       startFocus(); // 自动开始休息计时
     }
   }
 
   void pauseRest() {
-    if (_state.uiState != FocusUiState.restingRunning) return;
+    if (_state.uiState != FocusUiState.runningRest) return;
     _timer?.cancel();
     _timer = null;
-    _updateState(uiState: FocusUiState.restingPaused);
+    _updateState(
+      uiState: FocusUiState.pausedRest, // 进入暂停休息状态，而不是调整状态
+      isActive: false,
+    );
   }
 
   void resumeRest() {
-    if (_state.uiState != FocusUiState.restingPaused) return;
+    if (_state.uiState != FocusUiState.pausedRest) return;
+    _updateState(
+      uiState: FocusUiState.runningRest, // 恢复到运行休息状态
+      isActive: true,
+    );
     startFocus(); // 继续倒计时
   }
 
@@ -322,31 +373,40 @@ class FocusService extends ChangeNotifier {
     _updateState(minWorkDuration: seconds);
   }
 
-  // 开始时间调整
+  // 开始时间调整 - 现在不再需要此方法，因为暂停后直接进入调整模式
+  // 保留此方法是为了与UI层保持兼容性，但实际已不需要
   void beginTimeAdjustment() {
-    if (_state.uiState != FocusUiState.paused) return; // 只能在暂停时调整
-    _updateState(timeAdjustment: 0, uiState: FocusUiState.adjusting);
+    if (_state.uiState != FocusUiState.adjusting) return; // 只能在调整时调整
+    _updateState(deltaAdjustment: 0);
   }
 
   // 调整时间（在暂停时）
   void adjustTime(int seconds) {
-    if (_state.timeAdjustment != null) {
-      _updateState(timeAdjustment: _state.timeAdjustment! + seconds);
+    if (_state.deltaAdjustment != null) {
+      final newDelta = _state.deltaAdjustment! + seconds;
+      _updateState(deltaAdjustment: newDelta);
     }
   }
 
   // 应用时间调整并恢复计时
   void applyTimeAdjustment() {
-    if (_state.timeAdjustment != null) {
-      final adjustedTime = _state.timeInSeconds + _state.timeAdjustment!;
+    if (_state.deltaAdjustment != null) {
+      // 使用deltaAdjustment来调整时间
+      final adjustedTime = _state.timeInSeconds + _state.deltaAdjustment!;
       final newEarnedBreakSeconds = (adjustedTime / 5).floor();
       final isBreakUnlocked = adjustedTime >= _state.minWorkDuration;
       
+      // 在应用调整前保存当前状态，以便提供撤销功能
+      _previousState = _state;
+      _startUndoLifecycle();
+
       _updateState(
         timeInSeconds: adjustedTime,
         timeAdjustment: null, // 清除临时调整
+        deltaAdjustment: null, // 清除delta调整
         earnedBreakSeconds: newEarnedBreakSeconds,
         isBreakUnlocked: isBreakUnlocked,
+        hasAppliedAdjustment: _state.deltaAdjustment != 0, // 设置已应用调整标志
       );
     }
     startFocus(); // 应用后恢复计时
@@ -354,19 +414,28 @@ class FocusService extends ChangeNotifier {
 
   // 丢弃时间调整并恢复计时
   void discardTimeAdjustment() {
-    _updateState(timeAdjustment: null);
+    _updateState(
+      timeAdjustment: null, // 清除临时调整
+      deltaAdjustment: null, // 清除delta调整
+      hasAppliedAdjustment: false, // 重置已应用调整标志
+    );
     startFocus(); // 丢弃后恢复计时
   }
 
   // 高级休息：将当前时间调整到最小专注时间并立即开始休息
   void advancedBreak() {
-    if (_state.uiState != FocusUiState.paused) return; // 只能在暂停时使用
+    if (_state.uiState != FocusUiState.adjusting || _state.mode != FocusMode.work) return; // 只能在调整专注时使用
+
+    // 在执行前保存当前状态，以便undo可以使用
+    _previousState = _state;
+    _startUndoLifecycle();
 
     // 调整当前时间到最小专注时间
     final newEarnedBreakSeconds = (_state.minWorkDuration / 5).floor();
     _updateState(
       timeInSeconds: _state.minWorkDuration,
       timeAdjustment: null, // 清除任何临时调整
+      deltaAdjustment: null, // 清除任何delta调整
       earnedBreakSeconds: newEarnedBreakSeconds,
       isBreakUnlocked: true,
     );
@@ -397,9 +466,39 @@ class FocusService extends ChangeNotifier {
   // 撤销上一步操作
   void undo() {
     if (_previousState != null) {
-      _state = _previousState!;
+      // 如果之前的状态是激活的，需要重新启动计时器
+      final wasActive = _previousState!.isActive;
+      
+      _updateState(
+        timeInSeconds: _previousState!.timeInSeconds,
+        isActive: _previousState!.isActive,
+        mode: _previousState!.mode,
+        uiState: _previousState!.uiState,
+        breakTotalDuration: _previousState!.breakTotalDuration,
+        minWorkDuration: _previousState!.minWorkDuration,
+        sessionPauseCount: _previousState!.sessionPauseCount,
+        sessionTotalPausedTime: _previousState!.sessionTotalPausedTime,
+        sessionAdjustments: _previousState!.sessionAdjustments,
+        longPressThreshold: _previousState!.longPressThreshold,
+        earnedBreakSeconds: _previousState!.earnedBreakSeconds,
+        isBreakUnlocked: _previousState!.isBreakUnlocked,
+        timeAdjustment: _previousState!.timeAdjustment,
+        deltaAdjustment: _previousState!.deltaAdjustment,
+        hasAppliedAdjustment: false, // 重置已应用调整标志
+      );
+      
       _previousState = null;
       _undoTimer?.cancel();
+      
+      if (wasActive) {
+        // 恢复计时器状态 - 重新启动计时器
+        startFocus();
+      } else {
+        // 如果之前是暂停的，确保计时器已停止
+        _timer?.cancel();
+        _timer = null;
+      }
+      
       notifyListeners();
     }
   }
