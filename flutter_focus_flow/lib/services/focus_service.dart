@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 
 // 定义UI状态，用于驱动界面显示
 enum FocusUiState { idle, runningFocus, runningRest, pausedFocus, pausedRest, adjusting, goalMet }
@@ -215,6 +216,52 @@ class FocusService extends ChangeNotifier {
     );
     notifyListeners();
   }
+
+  // 公开的测试辅助方法，用于测试目的
+  @visibleForTesting
+  void updateStateForTesting({
+    int? timeInSeconds,
+    bool? isActive,
+    FocusMode? mode,
+    FocusUiState? uiState,
+    int? breakTotalDuration,
+    int? minWorkDuration,
+    int? sessionPauseCount,
+    int? sessionTotalPausedTime,
+    List<TimeAdjustment>? sessionAdjustments,
+    int? longPressThreshold,
+    int? earnedBreakSeconds,
+    bool? isBreakUnlocked,
+    int? timeAdjustment,
+    int? deltaAdjustment,
+    bool? hasAppliedAdjustment,
+  }) {
+    _updateState(
+      timeInSeconds: timeInSeconds,
+      isActive: isActive,
+      mode: mode,
+      uiState: uiState,
+      breakTotalDuration: breakTotalDuration,
+      minWorkDuration: minWorkDuration,
+      sessionPauseCount: sessionPauseCount,
+      sessionTotalPausedTime: sessionTotalPausedTime,
+      sessionAdjustments: sessionAdjustments,
+      longPressThreshold: longPressThreshold,
+      earnedBreakSeconds: earnedBreakSeconds,
+      isBreakUnlocked: isBreakUnlocked,
+      timeAdjustment: timeAdjustment,
+      deltaAdjustment: deltaAdjustment,
+      hasAppliedAdjustment: hasAppliedAdjustment,
+    );
+  }
+  
+  @visibleForTesting
+  set previousStateForTesting(FocusState? state) {
+    _previousState = state;
+  }
+  
+  @visibleForTesting
+  FocusState? get previousStateForTesting => _previousState;
 
   void startFocus() {
     // 如果已经在运行，先取消当前计时器，避免多个计时器实例
