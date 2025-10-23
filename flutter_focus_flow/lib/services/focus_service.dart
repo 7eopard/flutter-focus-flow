@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:meta/meta.dart';
 
 // 定义UI状态，用于驱动界面显示
@@ -95,7 +96,9 @@ class TimeAdjustment {
 class FocusService extends ChangeNotifier {
   Timer? _timer;
   FocusState? _previousState;
+  FocusState? _prePauseState;  // 专门用于在暂停时保存的状态，用于undo恢复到暂停前的状态
   Timer? _undoTimer;
+  final AudioPlayer _audioPlayer = AudioPlayer();
   FocusState? get previousState => _previousState;
 
   FocusState _state = const FocusState(
@@ -297,12 +300,16 @@ class FocusService extends ChangeNotifier {
         // 检查是否达到最小工作目标
         if (newTime >= _state.minWorkDuration && _state.uiState != FocusUiState.goalMet) {
           _updateState(uiState: FocusUiState.goalMet);
+          // 播放铃声提醒用户工作时间结束，可以开始休息了
+          _playNotificationSound();
         }
       } else if (_state.mode == FocusMode.rest) {
         if (_state.timeInSeconds > 0) {
           _updateState(timeInSeconds: _state.timeInSeconds - 1);
         } else {
-          // 休息时间结束，自动切换回工作模式
+          // 休息时间结束，播放铃声提醒用户休息时间结束
+          _playNotificationSound();
+          // 自动切换回工作模式
           endBreak();
         }
       }
@@ -313,7 +320,8 @@ class FocusService extends ChangeNotifier {
     if (!_state.isActive) return; // 如果已经暂停，则不执行操作
 
     // 在暂停前保存当前状态，以便undo可以恢复到暂停前的运行状态
-    _previousState = _state;
+    _prePauseState = _state;  // 专门保存暂停前的状态
+    _previousState = _state;  // 同时也更新一般撤销状态
     _startUndoLifecycle();
 
     _timer?.cancel();
@@ -444,6 +452,7 @@ class FocusService extends ChangeNotifier {
       final isBreakUnlocked = adjustedTime >= _state.minWorkDuration;
       
       // 在应用调整前保存当前状态，以便提供撤销功能
+      // 这里我们不希望覆盖暂停前的状态，因为undo应该回到暂停前的状态
       _previousState = _state;
       _startUndoLifecycle();
 
@@ -512,29 +521,36 @@ class FocusService extends ChangeNotifier {
 
   // 撤销上一步操作
   void undo() {
-    if (_previousState != null) {
+    // 优先使用暂停前的状态，这能确保undo返回到暂停前的状态，而不是调整后的状态
+    final stateToRestore = _prePauseState ?? _previousState;
+    
+    if (stateToRestore != null) {
       // 如果之前的状态是激活的，需要重新启动计时器
-      final wasActive = _previousState!.isActive;
+      final wasActive = stateToRestore.isActive;
       
       _updateState(
-        timeInSeconds: _previousState!.timeInSeconds,
-        isActive: _previousState!.isActive,
-        mode: _previousState!.mode,
-        uiState: _previousState!.uiState,
-        breakTotalDuration: _previousState!.breakTotalDuration,
-        minWorkDuration: _previousState!.minWorkDuration,
-        sessionPauseCount: _previousState!.sessionPauseCount,
-        sessionTotalPausedTime: _previousState!.sessionTotalPausedTime,
-        sessionAdjustments: _previousState!.sessionAdjustments,
-        longPressThreshold: _previousState!.longPressThreshold,
-        earnedBreakSeconds: _previousState!.earnedBreakSeconds,
-        isBreakUnlocked: _previousState!.isBreakUnlocked,
-        timeAdjustment: _previousState!.timeAdjustment,
-        deltaAdjustment: _previousState!.deltaAdjustment,
+        timeInSeconds: stateToRestore.timeInSeconds,
+        isActive: stateToRestore.isActive,
+        mode: stateToRestore.mode,
+        uiState: stateToRestore.uiState,
+        breakTotalDuration: stateToRestore.breakTotalDuration,
+        minWorkDuration: stateToRestore.minWorkDuration,
+        sessionPauseCount: stateToRestore.sessionPauseCount,
+        sessionTotalPausedTime: stateToRestore.sessionTotalPausedTime,
+        sessionAdjustments: stateToRestore.sessionAdjustments,
+        longPressThreshold: stateToRestore.longPressThreshold,
+        earnedBreakSeconds: stateToRestore.earnedBreakSeconds,
+        isBreakUnlocked: stateToRestore.isBreakUnlocked,
+        timeAdjustment: stateToRestore.timeAdjustment,
+        deltaAdjustment: stateToRestore.deltaAdjustment,
         hasAppliedAdjustment: false, // 重置已应用调整标志
       );
       
       _previousState = null;
+      // 仅在使用了_prePauseState时才清除它，这样可以确保一次undo操作后恢复到正常撤销流程
+      if (_prePauseState != null) {
+        _prePauseState = null;  // 清除暂停前的状态
+      }
       _undoTimer?.cancel();
       
       if (wasActive) {
@@ -557,6 +573,18 @@ class FocusService extends ChangeNotifier {
       _previousState = null;
       notifyListeners();
     });
+  }
+
+  // 播放通知铃声
+  Future<void> _playNotificationSound() async {
+    try {
+      // 使用一个免费的在线音效或默认系统声音
+      // 在实际应用中，您可能需要添加本地音频资源到assets
+      await _audioPlayer.play(UrlSource('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-991.mp3'));
+    } catch (e) {
+      print('Error playing notification sound: $e');
+      // 如果网络音频无法播放，可以尝试系统默认方式
+    }
   }
 
   @override

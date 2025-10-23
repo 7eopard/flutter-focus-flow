@@ -62,8 +62,8 @@ class _HomePageState extends State<HomePage> {
         selectedIndex: _selectedIndex,
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.timer_outlined),
-            selectedIcon: Icon(Icons.timer),
+            icon: Icon(Icons.access_time_outlined),
+            selectedIcon: Icon(Icons.access_time),
             label: 'Focus',
           ),
           NavigationDestination(

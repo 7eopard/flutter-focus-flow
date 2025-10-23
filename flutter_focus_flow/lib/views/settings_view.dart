@@ -2,8 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_focus_flow/services/focus_service.dart';
 import 'package:provider/provider.dart';
 
-class SettingsView extends StatelessWidget {
+class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
+
+  @override
+  State<SettingsView> createState() => _SettingsViewState();
+}
+
+class _SettingsViewState extends State<SettingsView> {
+  void _resetAppState(FocusService focusService) {
+    focusService.resetFocus();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Application has been reset to idle state'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +72,15 @@ class SettingsView extends StatelessWidget {
               subtitle: const Text('English'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {},
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.refresh),
+              title: const Text('Reset App'),
+              subtitle: const Text('Force reset to idle state'),
+              onTap: () => _resetAppState(focusService),
             ),
           ),
           const SizedBox(height: 12),
