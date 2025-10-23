@@ -275,19 +275,21 @@ class _FocusViewState extends State<FocusView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // 设置目标按钮
-              FloatingActionButton.extended(
-                onPressed: _showSetGoalDialog,
-                label: const Text('Set Goal'),
-                icon: const Icon(Icons.settings),
-                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              Tooltip(
+                message: 'Set Goal',
+                child: FloatingActionButton(
+                  onPressed: _showSetGoalDialog,
+                  child: const Icon(Icons.settings),
+                  backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                ),
               ),
-              // 开始按钮
-              FloatingActionButton.extended(
-                onPressed: _focusService.startFocus,
-                label: const Text('Start'),
-                icon: const Icon(Icons.play_arrow),
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              Tooltip(
+                message: 'Start',
+                child: FloatingActionButton(
+                  onPressed: _focusService.startFocus,
+                  child: const Icon(Icons.play_arrow),
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                ),
               ),
             ],
           ),
@@ -298,42 +300,40 @@ class _FocusViewState extends State<FocusView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // 暂停按钮
-              FloatingActionButton.extended(
-                onPressed: _focusService.pauseFocus,
-                label: const Text('Pause'),
-                icon: _focusService.state.isActive ? const Icon(Icons.pause) : const Icon(Icons.play_arrow),
-                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              Tooltip(
+                message: 'Pause',
+                child: FloatingActionButton(
+                  onPressed: _focusService.pauseFocus,
+                  child: _focusService.state.isActive ? const Icon(Icons.pause) : const Icon(Icons.play_arrow),
+                  backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                  elevation: 0, // 移除按钮阴影
+                  highlightElevation: 1, // 按下时的 elevation
+                ),
               ),
               // 休息按钮（根据是否解锁显示不同状态）
-              ElevatedButton.icon(
-                icon: Icon(
-                  _focusService.state.isBreakUnlocked ? Icons.free_breakfast : Icons.lock,
-                  // 添加视觉提示：未解锁时图标更暗淡
-                  color: _focusService.state.isBreakUnlocked 
-                      ? null 
-                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                ),
-                label: Text(
-                  _focusService.state.isBreakUnlocked 
-                      ? 'Rest (${(_focusService.state.earnedBreakSeconds ~/ 60).toString().padLeft(2, '0')}:${(_focusService.state.earnedBreakSeconds % 60).toString().padLeft(2, '0')})' 
-                      : 'Rest (00:00)', // 显示"Rest"但用不同样式来表示锁定状态
-                  style: TextStyle(
+              Tooltip(
+                message: _focusService.state.isBreakUnlocked 
+                    ? 'Rest (${(_focusService.state.earnedBreakSeconds ~/ 60).toString().padLeft(2, '0')}:${(_focusService.state.earnedBreakSeconds % 60).toString().padLeft(2, '0')})' 
+                    : 'Rest Locked',
+                child: ElevatedButton.icon(
+                  icon: Icon(
+                    _focusService.state.isBreakUnlocked ? Icons.free_breakfast : Icons.lock,
+                    // 添加视觉提示：未解锁时图标更暗淡
                     color: _focusService.state.isBreakUnlocked 
                         ? null 
                         : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                   ),
-                ),
-                onPressed: _focusService.state.isBreakUnlocked 
-                    ? _focusService.startBreak 
-                    : null, // 按钮禁用状态更明确
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _focusService.state.isBreakUnlocked 
-                      ? Theme.of(context).colorScheme.primaryContainer 
-                      : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                  minimumSize: const Size(120, 56),
-                  shape: RoundedRectangleBorder( // 确保一致的圆角
-                    borderRadius: BorderRadius.circular(12),
+                  label: const SizedBox.shrink(), // 隐藏标签文字
+                  onPressed: _focusService.state.isBreakUnlocked 
+                      ? _focusService.startBreak 
+                      : null, // 按钮禁用状态更明确
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _focusService.state.isBreakUnlocked 
+                        ? Theme.of(context).colorScheme.primaryContainer 
+                        : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                    minimumSize: const Size(60, 60), // 调整为圆形按钮大小
+                    elevation: 0, // 移除按钮阴影
+                    shape: const CircleBorder(), // 圆形按钮
                   ),
                 ),
               ),
@@ -346,22 +346,28 @@ class _FocusViewState extends State<FocusView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // 返回专注按钮
-              FloatingActionButton.extended(
-                onPressed: _focusService.endBreak,
-                label: const Text('Back to Focus'),
-                icon: const Icon(Icons.assignment),
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              Tooltip(
+                message: 'Back to Focus',
+                child: FloatingActionButton(
+                  onPressed: _focusService.endBreak,
+                  child: const Icon(Icons.assignment),
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  elevation: 0, // 移除按钮阴影
+                  highlightElevation: 1, // 按下时的 elevation
+                ),
               ),
-              // 跳过休息并专注按钮
-              FloatingActionButton.extended(
-                onPressed: () {
-                  _focusService.endBreak();
-                  _focusService.startFocus();
-                },
-                label: const Text('Skip & Focus'),
-                icon: const Icon(Icons.fast_forward),
-                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              Tooltip(
+                message: 'Skip & Focus',
+                child: FloatingActionButton(
+                  onPressed: () {
+                    _focusService.endBreak();
+                    _focusService.startFocus();
+                  },
+                  child: const Icon(Icons.fast_forward),
+                  backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                  elevation: 0, // 移除按钮阴影
+                  highlightElevation: 1, // 按下时的 elevation
+                ),
               ),
             ],
           ),
@@ -375,30 +381,40 @@ class _FocusViewState extends State<FocusView> {
               // 跳过并休息按钮
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                child: FloatingActionButton.extended(
-                  onPressed: _focusService.advancedBreak,
-                  label: const Text('Skip to Rest'),
-                  icon: const Icon(Icons.fast_forward),
-                  backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+                child: Tooltip(
+                  message: 'Skip to Rest',
+                  child: FloatingActionButton(
+                    onPressed: _focusService.advancedBreak,
+                    child: const Icon(Icons.fast_forward),
+                    backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+                    elevation: 0, // 移除按钮阴影
+                    highlightElevation: 1, // 按下时的 elevation
+                  ),
                 ),
               ),
               // 取消和应用按钮行
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  // 取消并恢复按钮
-                  FloatingActionButton.extended(
-                    onPressed: _focusService.discardTimeAdjustment,
-                    label: const Text('Discard'),
-                    icon: const Icon(Icons.close),
-                    backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                  Tooltip(
+                    message: 'Discard',
+                    child: FloatingActionButton(
+                      onPressed: _focusService.discardTimeAdjustment,
+                      child: const Icon(Icons.close),
+                      backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                      elevation: 0, // 移除按钮阴影
+                      highlightElevation: 1, // 按下时的 elevation
+                    ),
                   ),
-                  // 应用并恢复按钮
-                  FloatingActionButton.extended(
-                    onPressed: _focusService.applyTimeAdjustment,
-                    label: const Text('Apply'),
-                    icon: const Icon(Icons.check),
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  Tooltip(
+                    message: 'Apply',
+                    child: FloatingActionButton(
+                      onPressed: _focusService.applyTimeAdjustment,
+                      child: const Icon(Icons.check),
+                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                      elevation: 0, // 移除按钮阴影
+                      highlightElevation: 1, // 按下时的 elevation
+                    ),
                   ),
                 ],
               ),
@@ -411,12 +427,15 @@ class _FocusViewState extends State<FocusView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 开始休息按钮
-              FloatingActionButton.extended(
-                onPressed: _focusService.startBreak,
-                label: const Text('Start Rest'),
-                icon: const Icon(Icons.free_breakfast),
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              Tooltip(
+                message: 'Start Rest',
+                child: FloatingActionButton(
+                  onPressed: _focusService.startBreak,
+                  child: const Icon(Icons.free_breakfast),
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  elevation: 0, // 移除按钮阴影
+                  highlightElevation: 1, // 按下时的 elevation
+                ),
               ),
             ],
           ),
@@ -430,21 +449,27 @@ class _FocusViewState extends State<FocusView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // 取消并恢复按钮
-              FloatingActionButton.extended(
-                onPressed: _focusService.discardTimeAdjustment,
-                label: const Text('Discard'),
-                icon: const Icon(Icons.close),
-                backgroundColor: Theme.of(context).colorScheme.errorContainer,
+              Tooltip(
+                message: 'Discard',
+                child: FloatingActionButton(
+                  onPressed: _focusService.discardTimeAdjustment,
+                  child: const Icon(Icons.close),
+                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                  elevation: 0, // 移除按钮阴影
+                  highlightElevation: 1, // 按下时的 elevation
+                ),
               ),
-              // 恢复休息按钮
-              FloatingActionButton.extended(
-                onPressed: () {
-                  _focusService.resumeRest();
-                },
-                label: const Text('Resume'),
-                icon: const Icon(Icons.play_arrow),
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              Tooltip(
+                message: 'Resume',
+                child: FloatingActionButton(
+                  onPressed: () {
+                    _focusService.resumeRest();
+                  },
+                  child: const Icon(Icons.play_arrow),
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  elevation: 0, // 移除按钮阴影
+                  highlightElevation: 1, // 按下时的 elevation
+                ),
               ),
             ],
           ),
