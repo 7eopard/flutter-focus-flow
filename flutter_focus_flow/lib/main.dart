@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter_focus_flow/utils/theme.dart';
 import 'package:flutter_focus_flow/services/focus_service.dart';
 import 'package:flutter_focus_flow/views/focus_view.dart';
@@ -18,12 +19,39 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (context) => FocusService(),
-      child: MaterialApp(
-        title: 'Focus Flow',
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        home: const HomePage(),
-        debugShowCheckedModeBanner: true,
+      child: DynamicColorBuilder(
+        builder: (lightColorScheme, darkColorScheme) {
+          return MaterialApp(
+            title: 'Focus Flow',
+            theme: ThemeData(
+              useMaterial3: true,
+              colorScheme: lightColorScheme ?? AppTheme.lightTheme.colorScheme,
+              textTheme: AppTheme.lightTheme.textTheme,
+              navigationBarTheme: AppTheme.lightTheme.navigationBarTheme,
+              navigationRailTheme: AppTheme.lightTheme.navigationRailTheme,
+              cardTheme: AppTheme.lightTheme.cardTheme,
+              elevatedButtonTheme: AppTheme.lightTheme.elevatedButtonTheme,
+              floatingActionButtonTheme: AppTheme.lightTheme.floatingActionButtonTheme,
+              progressIndicatorTheme: AppTheme.lightTheme.progressIndicatorTheme,
+              pageTransitionsTheme: AppTheme.lightTheme.pageTransitionsTheme,
+            ),
+            darkTheme: ThemeData(
+              useMaterial3: true,
+              colorScheme: darkColorScheme ?? AppTheme.darkTheme.colorScheme,
+              textTheme: AppTheme.darkTheme.textTheme,
+              navigationBarTheme: AppTheme.darkTheme.navigationBarTheme,
+              navigationRailTheme: AppTheme.darkTheme.navigationRailTheme,
+              cardTheme: AppTheme.darkTheme.cardTheme,
+              elevatedButtonTheme: AppTheme.darkTheme.elevatedButtonTheme,
+              floatingActionButtonTheme: AppTheme.darkTheme.floatingActionButtonTheme,
+              progressIndicatorTheme: AppTheme.darkTheme.progressIndicatorTheme,
+              pageTransitionsTheme: AppTheme.darkTheme.pageTransitionsTheme,
+            ),
+            themeMode: ThemeMode.system,
+            home: const HomePage(),
+            debugShowCheckedModeBanner: false,
+          );
+        },
       ),
     );
   }

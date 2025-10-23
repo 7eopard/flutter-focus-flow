@@ -9,12 +9,28 @@ class FocusView extends StatefulWidget {
   State<FocusView> createState() => _FocusViewState();
 }
 
-class _FocusViewState extends State<FocusView> {
+class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
   late FocusService _focusService;
+  late AnimationController _slideController;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOutCubic,
+    ));
+    
+    _slideController.forward();
   }
 
 
@@ -24,64 +40,89 @@ class _FocusViewState extends State<FocusView> {
     _focusService = Provider.of<FocusService>(context);
     
     return Scaffold(
-      body: Column(
-        children: [
-          // Timer display - 使用圆形进度条，类似Kotlin demo的样式
-          Expanded(
-            flex: 2,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // 圆形进度条
-                    SizedBox(
-                      width: 300,
-                      height: 300,
-                      child: CircularProgressIndicator(
-                        value: _focusService.state.mode == FocusMode.work 
-                            ? (_focusService.state.minWorkDuration > 0 
-                                ? 1.0 - (_focusService.state.timeInSeconds / _focusService.state.minWorkDuration) 
-                                : 0)
-                            : (_focusService.state.breakTotalDuration > 0 
-                                ? 1.0 - (_focusService.state.timeInSeconds / _focusService.state.breakTotalDuration) 
-                                : 0),
-                        strokeWidth: 12,
-                        backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          _focusService.state.mode == FocusMode.work
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.tertiary,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Timer display - 使用圆形进度条，类似Kotlin demo的样式
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                child: Center(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // 背景装饰
+                      Container(
+                        width: 320,
+                        height: 320,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
+                              blurRadius: 20,
+                              spreadRadius: 5,
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    // 时间文本显示在中心
-                    Text(
-                      _focusService.formattedTime,
-                      style: const TextStyle(
-                        fontSize: 64,
-                        fontWeight: FontWeight.bold,
-                        fontFeatures: [FontFeature.tabularFigures()], // 确保数字等宽
+                      // 圆形进度条
+                      SizedBox(
+                        width: 300,
+                        height: 300,
+                        child: CircularProgressIndicator(
+                          value: _focusService.state.mode == FocusMode.work 
+                              ? (_focusService.state.minWorkDuration > 0 
+                                  ? 1.0 - (_focusService.state.timeInSeconds / _focusService.state.minWorkDuration) 
+                                  : 0)
+                              : (_focusService.state.breakTotalDuration > 0 
+                                  ? 1.0 - (_focusService.state.timeInSeconds / _focusService.state.breakTotalDuration) 
+                                  : 0),
+                          strokeWidth: 16,
+                          backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            _focusService.state.mode == FocusMode.work
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.tertiary,
+                          ),
+                          strokeCap: StrokeCap.round,
+                        ),
                       ),
-                    ),
-                  ],
+                      // 时间文本显示在中心
+                      Text(
+                        _focusService.formattedTime,
+                        style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: _focusService.state.mode == FocusMode.work
+                              ? Theme.of(context).colorScheme.onPrimaryContainer
+                              : Theme.of(context).colorScheme.onTertiaryContainer,
+                          fontFeatures: const [FontFeature.tabularFigures()], // 确保数字等宽
+                          fontFamily: 'monospace', // 使用等宽字体
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          
-          // Controls area - 使用新的状态机来构建UI
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              child: _buildControls(_focusService.state.uiState),
+            
+            // Controls area - 使用新的状态机来构建UI
+            Expanded(
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  child: _buildControls(_focusService.state.uiState),
+                ),
+              ),
             ),
-          ),
-          
-          // Bottom action buttons - 类似Google时钟的底部按钮布局
-          _buildBottomActionButtons(_focusService.state.uiState),
-        ],
+            
+            // Bottom action buttons - 类似Google时钟的底部按钮布局
+            _buildBottomActionButtons(_focusService.state.uiState),
+          ],
+        ),
       ),
       // 移除FAB，将所有操作按钮统一到底部操作区
     );
@@ -163,18 +204,50 @@ class _FocusViewState extends State<FocusView> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OutlinedButton(onPressed: () => _focusService.adjustTime(-30), child: const Text('-30s')),
-                  const SizedBox(width: 16),
-                  Text(
-                    '${_focusService.deltaAdjustmentInSeconds >= 0 ? '+' : ''}${_focusService.deltaAdjustmentInSeconds}s', 
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Adjust Time',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FilledButton.tonal(
+                            onPressed: () => _focusService.adjustTime(-30),
+                            child: const Text('-30s'),
+                          ),
+                          const SizedBox(width: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${_focusService.deltaAdjustmentInSeconds >= 0 ? '+' : ''}${_focusService.deltaAdjustmentInSeconds}s', 
+                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          FilledButton.tonal(
+                            onPressed: () => _focusService.adjustTime(30),
+                            child: const Text('+30s'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 16),
-                  OutlinedButton(onPressed: () => _focusService.adjustTime(30), child: const Text('+30s')),
-                ],
+                ),
               ),
             ],
           ),
@@ -182,11 +255,42 @@ class _FocusViewState extends State<FocusView> {
 
       case FocusUiState.goalMet:
         return Center(
-          child: _buildActionButton(
-            icon: Icons.free_breakfast,
-            label: 'Start Rest',
-            onPressed: _focusService.startBreak,
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.emoji_events,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Goal Achieved!',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'You\'ve reached your focus goal',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.free_breakfast),
+                    label: const Text('Start Rest'),
+                    onPressed: _focusService.startBreak,
+                  ),
+                ],
+              ),
+            ),
           ),
         );
 
@@ -237,21 +341,56 @@ class _FocusViewState extends State<FocusView> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Set Min Focus Time'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            hintText: 'Enter minutes',
-            labelText: 'Min Focus Time (minutes)',
-          ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Set Focus Goal',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Set your minimum focus time goal',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                hintText: 'Enter minutes',
+                labelText: 'Focus Goal (minutes)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // 快速选择按钮
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [15, 25, 30, 45, 60].map((minutes) {
+                return ActionChip(
+                  label: Text('$minutes min'),
+                  onPressed: () {
+                    controller.text = minutes.toString();
+                  },
+                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                );
+              }).toList(),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () {
               final value = int.tryParse(controller.text);
               if (value != null && value > 0) {
@@ -259,14 +398,14 @@ class _FocusViewState extends State<FocusView> {
               }
               Navigator.pop(context);
             },
-            child: const Text('Set'),
+            child: const Text('Set Goal'),
           ),
         ],
       ),
     );
   }
 
-  // 构建底部操作按钮 - 类似Kotlin demo的布局
+  // 构建底部操作按钮 - 使用Material 3 Expressive设计
   Widget _buildBottomActionButtons(FocusUiState uiState) {
     switch (uiState) {
       case FocusUiState.idle:
@@ -275,20 +414,30 @@ class _FocusViewState extends State<FocusView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Tooltip(
-                message: 'Set Goal',
-                child: FloatingActionButton(
-                  onPressed: _showSetGoalDialog,
-                  child: const Icon(Icons.settings),
+              FilledButton.icon(
+                onPressed: _showSetGoalDialog,
+                icon: const Icon(Icons.settings),
+                label: const Text('Set Goal'),
+                style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                  foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
-              Tooltip(
-                message: 'Start',
-                child: FloatingActionButton(
-                  onPressed: _focusService.startFocus,
-                  child: const Icon(Icons.play_arrow),
+              FilledButton.icon(
+                onPressed: _focusService.startFocus,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Start'),
+                style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
             ],
@@ -300,40 +449,43 @@ class _FocusViewState extends State<FocusView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Tooltip(
-                message: 'Pause',
-                child: FloatingActionButton(
-                  onPressed: _focusService.pauseFocus,
-                  child: _focusService.state.isActive ? const Icon(Icons.pause) : const Icon(Icons.play_arrow),
+              FilledButton.icon(
+                onPressed: _focusService.pauseFocus,
+                icon: _focusService.state.isActive ? const Icon(Icons.pause) : const Icon(Icons.play_arrow),
+                label: Text(_focusService.state.isActive ? 'Pause' : 'Resume'),
+                style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                  elevation: 0, // 移除按钮阴影
-                  highlightElevation: 1, // 按下时的 elevation
+                  foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
               // 休息按钮（根据是否解锁显示不同状态）
-              Tooltip(
-                message: _focusService.state.isBreakUnlocked 
-                    ? 'Rest (${(_focusService.state.earnedBreakSeconds ~/ 60).toString().padLeft(2, '0')}:${(_focusService.state.earnedBreakSeconds % 60).toString().padLeft(2, '0')})' 
-                    : 'Rest Locked',
-                child: ElevatedButton.icon(
-                  icon: Icon(
-                    _focusService.state.isBreakUnlocked ? Icons.free_breakfast : Icons.lock,
-                    // 添加视觉提示：未解锁时图标更暗淡
-                    color: _focusService.state.isBreakUnlocked 
-                        ? null 
-                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                  label: const SizedBox.shrink(), // 隐藏标签文字
-                  onPressed: _focusService.state.isBreakUnlocked 
-                      ? _focusService.startBreak 
-                      : null, // 按钮禁用状态更明确
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _focusService.state.isBreakUnlocked 
-                        ? Theme.of(context).colorScheme.primaryContainer 
-                        : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                    minimumSize: const Size(60, 60), // 调整为圆形按钮大小
-                    elevation: 0, // 移除按钮阴影
-                    shape: const CircleBorder(), // 圆形按钮
+              FilledButton.icon(
+                onPressed: _focusService.state.isBreakUnlocked 
+                    ? _focusService.startBreak 
+                    : null,
+                icon: Icon(
+                  _focusService.state.isBreakUnlocked ? Icons.free_breakfast : Icons.lock,
+                  color: _focusService.state.isBreakUnlocked 
+                      ? null 
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                ),
+                label: _focusService.state.isBreakUnlocked 
+                    ? Text('Rest (${(_focusService.state.earnedBreakSeconds ~/ 60).toString().padLeft(2, '0')}:${(_focusService.state.earnedBreakSeconds % 60).toString().padLeft(2, '0')})')
+                    : const Text('Rest Locked'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _focusService.state.isBreakUnlocked 
+                      ? Theme.of(context).colorScheme.primaryContainer 
+                      : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                  foregroundColor: _focusService.state.isBreakUnlocked
+                      ? Theme.of(context).colorScheme.onPrimaryContainer
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
               ),
@@ -346,27 +498,33 @@ class _FocusViewState extends State<FocusView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Tooltip(
-                message: 'Back to Focus',
-                child: FloatingActionButton(
-                  onPressed: _focusService.endBreak,
-                  child: const Icon(Icons.assignment),
+              FilledButton.icon(
+                onPressed: _focusService.endBreak,
+                icon: const Icon(Icons.assignment),
+                label: const Text('Back to Focus'),
+                style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  elevation: 0, // 移除按钮阴影
-                  highlightElevation: 1, // 按下时的 elevation
+                  foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
-              Tooltip(
-                message: 'Skip & Focus',
-                child: FloatingActionButton(
-                  onPressed: () {
-                    _focusService.endBreak();
-                    _focusService.startFocus();
-                  },
-                  child: const Icon(Icons.fast_forward),
+              FilledButton.icon(
+                onPressed: () {
+                  _focusService.endBreak();
+                  _focusService.startFocus();
+                },
+                icon: const Icon(Icons.fast_forward),
+                label: const Text('Skip & Focus'),
+                style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                  elevation: 0, // 移除按钮阴影
-                  highlightElevation: 1, // 按下时的 elevation
+                  foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
             ],
@@ -381,14 +539,17 @@ class _FocusViewState extends State<FocusView> {
               // 跳过并休息按钮
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                child: Tooltip(
-                  message: 'Skip to Rest',
-                  child: FloatingActionButton(
-                    onPressed: _focusService.advancedBreak,
-                    child: const Icon(Icons.fast_forward),
+                child: FilledButton.icon(
+                  onPressed: _focusService.advancedBreak,
+                  icon: const Icon(Icons.fast_forward),
+                  label: const Text('Skip to Rest'),
+                  style: FilledButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
-                    elevation: 0, // 移除按钮阴影
-                    highlightElevation: 1, // 按下时的 elevation
+                    foregroundColor: Theme.of(context).colorScheme.onTertiaryContainer,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
                 ),
               ),
@@ -396,24 +557,28 @@ class _FocusViewState extends State<FocusView> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  Tooltip(
-                    message: 'Discard',
-                    child: FloatingActionButton(
-                      onPressed: _focusService.discardTimeAdjustment,
-                      child: const Icon(Icons.close),
-                      backgroundColor: Theme.of(context).colorScheme.errorContainer,
-                      elevation: 0, // 移除按钮阴影
-                      highlightElevation: 1, // 按下时的 elevation
+                  OutlinedButton.icon(
+                    onPressed: _focusService.discardTimeAdjustment,
+                    icon: const Icon(Icons.close),
+                    label: const Text('Discard'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                     ),
                   ),
-                  Tooltip(
-                    message: 'Apply',
-                    child: FloatingActionButton(
-                      onPressed: _focusService.applyTimeAdjustment,
-                      child: const Icon(Icons.check),
+                  FilledButton.icon(
+                    onPressed: _focusService.applyTimeAdjustment,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Apply'),
+                    style: FilledButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                      elevation: 0, // 移除按钮阴影
-                      highlightElevation: 1, // 按下时的 elevation
+                      foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                     ),
                   ),
                 ],
@@ -427,14 +592,17 @@ class _FocusViewState extends State<FocusView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Tooltip(
-                message: 'Start Rest',
-                child: FloatingActionButton(
-                  onPressed: _focusService.startBreak,
-                  child: const Icon(Icons.free_breakfast),
+              FilledButton.icon(
+                onPressed: _focusService.startBreak,
+                icon: const Icon(Icons.free_breakfast),
+                label: const Text('Start Rest'),
+                style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  elevation: 0, // 移除按钮阴影
-                  highlightElevation: 1, // 按下时的 elevation
+                  foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
             ],
@@ -449,26 +617,30 @@ class _FocusViewState extends State<FocusView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Tooltip(
-                message: 'Discard',
-                child: FloatingActionButton(
-                  onPressed: _focusService.discardTimeAdjustment,
-                  child: const Icon(Icons.close),
-                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
-                  elevation: 0, // 移除按钮阴影
-                  highlightElevation: 1, // 按下时的 elevation
+              OutlinedButton.icon(
+                onPressed: _focusService.discardTimeAdjustment,
+                icon: const Icon(Icons.close),
+                label: const Text('Discard'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
-              Tooltip(
-                message: 'Resume',
-                child: FloatingActionButton(
-                  onPressed: () {
-                    _focusService.resumeRest();
-                  },
-                  child: const Icon(Icons.play_arrow),
+              FilledButton.icon(
+                onPressed: () {
+                  _focusService.resumeRest();
+                },
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Resume'),
+                style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  elevation: 0, // 移除按钮阴影
-                  highlightElevation: 1, // 按下时的 elevation
+                  foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
             ],
