@@ -24,82 +24,48 @@ class _FocusViewState extends State<FocusView> {
     _focusService = Provider.of<FocusService>(context);
     
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Focus Flow'),
-        centerTitle: true,
-        actions: [
-          // 显示undo按钮在apply后或调整状态时
-          if (_focusService.previousState != null && 
-              (_focusService.deltaAdjustmentInSeconds != 0 || _focusService.hasAppliedAdjustment))
-            TextButton(
-              onPressed: _focusService.undo,
-              child: const Text('Undo'),
-            ),
-        ],
-      ),
       body: Column(
         children: [
-          // Timer display - 主显示区域始终占用固定比例空间
+          // Timer display - 使用圆形进度条，类似Kotlin demo的样式
           Expanded(
             flex: 2,
             child: Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant,
-                borderRadius: BorderRadius.circular(16),
-              ),
+              padding: const EdgeInsets.all(20),
               child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _focusService.formattedTime,
-                        style: const TextStyle(
-                          fontSize: 64,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        _focusService.state.mode == FocusMode.work 
-                          ? (_focusService.state.isActive 
-                              ? 'Focus Time' 
-                              : _focusService.isAdjustedGoalReached 
-                                  ? 'Goal Reached!' 
-                                  : 'Focus Time')
-                          : (_focusService.state.isActive ? 'Rest Time' : 'Rest Time'),
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 10),
-                      // 显示赚取的休息时间（始终占据空间以保持布局稳定）
-                      SizedBox(
-                        height: _focusService.state.mode == FocusMode.work && _focusService.state.timeInSeconds > 0 ? null : 0,
-                        child: Text(
-                          _focusService.state.mode == FocusMode.work && _focusService.state.timeInSeconds > 0
-                            ? 'Earned Rest: ${(_focusService.state.earnedBreakSeconds ~/ 60).toString().padLeft(2, '0')}:${(_focusService.state.earnedBreakSeconds % 60).toString().padLeft(2, '0')}'
-                            : '',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                      // 显示是否解锁休息（始终占据空间以保持布局稳定）
-                      SizedBox(
-                        height: _focusService.state.mode == FocusMode.work ? null : 0,
-                        child: Text(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // 圆形进度条
+                    SizedBox(
+                      width: 300,
+                      height: 300,
+                      child: CircularProgressIndicator(
+                        value: _focusService.state.mode == FocusMode.work 
+                            ? (_focusService.state.minWorkDuration > 0 
+                                ? 1.0 - (_focusService.state.timeInSeconds / _focusService.state.minWorkDuration) 
+                                : 0)
+                            : (_focusService.state.breakTotalDuration > 0 
+                                ? 1.0 - (_focusService.state.timeInSeconds / _focusService.state.breakTotalDuration) 
+                                : 0),
+                        strokeWidth: 12,
+                        backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                        valueColor: AlwaysStoppedAnimation<Color>(
                           _focusService.state.mode == FocusMode.work
-                            ? (_focusService.state.isBreakUnlocked ? 'Break Unlocked!' : 'Work to unlock break')
-                            : '',
-                          style: TextStyle(
-                            color: _focusService.state.isBreakUnlocked 
-                                ? Theme.of(context).colorScheme.primary 
-                                : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                            fontSize: 12,
-                          ),
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.tertiary,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    // 时间文本显示在中心
+                    Text(
+                      _focusService.formattedTime,
+                      style: const TextStyle(
+                        fontSize: 64,
+                        fontWeight: FontWeight.bold,
+                        fontFeatures: [FontFeature.tabularFigures()], // 确保数字等宽
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -189,22 +155,7 @@ class _FocusViewState extends State<FocusView> {
   Widget _buildControls(FocusUiState uiState) {
     switch (uiState) {
       case FocusUiState.idle:
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: _buildButtonRow(
-            _buildActionButton(
-              icon: Icons.settings,
-              label: 'Set Goal',
-              onPressed: _showSetGoalDialog,
-            ),
-            _buildActionButton(
-              icon: Icons.play_arrow,
-              label: 'Start',
-              onPressed: _focusService.startFocus,
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            ),
-          ),
-        );
+        return const SizedBox.shrink(); // 空容器，因为按钮已移动到底部
 
       case FocusUiState.adjusting:
         return SingleChildScrollView(
@@ -217,17 +168,13 @@ class _FocusViewState extends State<FocusView> {
                 children: [
                   OutlinedButton(onPressed: () => _focusService.adjustTime(-30), child: const Text('-30s')),
                   const SizedBox(width: 16),
-                  Text(_focusService.formattedDeltaAdjustment, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  Text(
+                    '${_focusService.deltaAdjustmentInSeconds >= 0 ? '+' : ''}${_focusService.deltaAdjustmentInSeconds}s', 
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(width: 16),
                   OutlinedButton(onPressed: () => _focusService.adjustTime(30), child: const Text('+30s')),
                 ],
-              ),
-              const SizedBox(height: 16),
-              _buildActionButton(
-                icon: Icons.fast_forward,
-                label: 'Complete & Rest',
-                onPressed: _focusService.advancedBreak,
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
               ),
             ],
           ),
@@ -245,8 +192,11 @@ class _FocusViewState extends State<FocusView> {
 
       case FocusUiState.runningFocus:
       case FocusUiState.runningRest:
+        // 在计时运行时，使用底部按钮，主区域为空
+        return const SizedBox.shrink();
       case FocusUiState.pausedFocus:
-        return const SizedBox.shrink(); // 运行时，辅助区域为空
+        // 不应该出现这个状态，因为我们直接转到调整模式
+        return const SizedBox.shrink(); 
       case FocusUiState.pausedRest:
         // 在暂停休息时显示调整控件
         return SingleChildScrollView(
@@ -259,7 +209,10 @@ class _FocusViewState extends State<FocusView> {
                 children: [
                   OutlinedButton(onPressed: () => _focusService.adjustTime(-30), child: const Text('-30s')),
                   const SizedBox(width: 16),
-                  Text(_focusService.formattedDeltaAdjustment, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  Text(
+                    '${_focusService.deltaAdjustmentInSeconds >= 0 ? '+' : ''}${_focusService.deltaAdjustmentInSeconds}s', 
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(width: 16),
                   OutlinedButton(onPressed: () => _focusService.adjustTime(30), child: const Text('+30s')),
                 ],
@@ -313,11 +266,32 @@ class _FocusViewState extends State<FocusView> {
     );
   }
 
-  // 构建底部操作按钮 - 类似Google时钟的布局
+  // 构建底部操作按钮 - 类似Kotlin demo的布局
   Widget _buildBottomActionButtons(FocusUiState uiState) {
     switch (uiState) {
       case FocusUiState.idle:
-        return Container(); // 空容器
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // 设置目标按钮
+              FloatingActionButton.extended(
+                onPressed: _showSetGoalDialog,
+                label: const Text('Set Goal'),
+                icon: const Icon(Icons.settings),
+                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              ),
+              // 开始按钮
+              FloatingActionButton.extended(
+                onPressed: _focusService.startFocus,
+                label: const Text('Start'),
+                icon: const Icon(Icons.play_arrow),
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              ),
+            ],
+          ),
+        );
       case FocusUiState.runningFocus:
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -328,19 +302,40 @@ class _FocusViewState extends State<FocusView> {
               FloatingActionButton.extended(
                 onPressed: _focusService.pauseFocus,
                 label: const Text('Pause'),
-                icon: const Icon(Icons.pause),
+                icon: _focusService.state.isActive ? const Icon(Icons.pause) : const Icon(Icons.play_arrow),
                 backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
               ),
-              // 开始休息按钮（根据是否解锁显示不同状态）
-              _buildActionButton(
-                icon: _focusService.state.isBreakUnlocked ? Icons.free_breakfast : Icons.lock,
-                label: _focusService.state.isBreakUnlocked ? 'Rest' : 'Lock',
+              // 休息按钮（根据是否解锁显示不同状态）
+              ElevatedButton.icon(
+                icon: Icon(
+                  _focusService.state.isBreakUnlocked ? Icons.free_breakfast : Icons.lock,
+                  // 添加视觉提示：未解锁时图标更暗淡
+                  color: _focusService.state.isBreakUnlocked 
+                      ? null 
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                ),
+                label: Text(
+                  _focusService.state.isBreakUnlocked 
+                      ? 'Rest (${(_focusService.state.earnedBreakSeconds ~/ 60).toString().padLeft(2, '0')}:${(_focusService.state.earnedBreakSeconds % 60).toString().padLeft(2, '0')})' 
+                      : 'Rest (00:00)', // 显示"Rest"但用不同样式来表示锁定状态
+                  style: TextStyle(
+                    color: _focusService.state.isBreakUnlocked 
+                        ? null 
+                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
                 onPressed: _focusService.state.isBreakUnlocked 
                     ? _focusService.startBreak 
-                    : () {}, // 空函数，按钮不可用但仍可点击，或者使用下面的方法禁用
-                backgroundColor: _focusService.state.isBreakUnlocked 
-                    ? Theme.of(context).colorScheme.primaryContainer 
-                    : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                    : null, // 按钮禁用状态更明确
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _focusService.state.isBreakUnlocked 
+                      ? Theme.of(context).colorScheme.primaryContainer 
+                      : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                  minimumSize: const Size(120, 56),
+                  shape: RoundedRectangleBorder( // 确保一致的圆角
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ],
           ),
@@ -351,14 +346,14 @@ class _FocusViewState extends State<FocusView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // 返回专注按钮 (backtofocus)
+              // 返回专注按钮
               FloatingActionButton.extended(
                 onPressed: _focusService.endBreak,
                 label: const Text('Back to Focus'),
                 icon: const Icon(Icons.assignment),
                 backgroundColor: Theme.of(context).colorScheme.primaryContainer,
               ),
-              // 跳过休息并专注按钮 (skipandfocus)
+              // 跳过休息并专注按钮
               FloatingActionButton.extended(
                 onPressed: () {
                   _focusService.endBreak();
@@ -374,22 +369,38 @@ class _FocusViewState extends State<FocusView> {
       case FocusUiState.adjusting:
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // 取消并恢复按钮
-              FloatingActionButton.extended(
-                onPressed: _focusService.discardTimeAdjustment,
-                label: const Text('Discard'),
-                icon: const Icon(Icons.close),
-                backgroundColor: Theme.of(context).colorScheme.errorContainer,
+              // 跳过并休息按钮
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: FloatingActionButton.extended(
+                  onPressed: _focusService.advancedBreak,
+                  label: const Text('Skip to Rest'),
+                  icon: const Icon(Icons.fast_forward),
+                  backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+                ),
               ),
-              // 应用并恢复按钮
-              FloatingActionButton.extended(
-                onPressed: _focusService.applyTimeAdjustment,
-                label: const Text('Apply'),
-                icon: const Icon(Icons.check),
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              // 取消和应用按钮行
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // 取消并恢复按钮
+                  FloatingActionButton.extended(
+                    onPressed: _focusService.discardTimeAdjustment,
+                    label: const Text('Discard'),
+                    icon: const Icon(Icons.close),
+                    backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                  ),
+                  // 应用并恢复按钮
+                  FloatingActionButton.extended(
+                    onPressed: _focusService.applyTimeAdjustment,
+                    label: const Text('Apply'),
+                    icon: const Icon(Icons.check),
+                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  ),
+                ],
               ),
             ],
           ),

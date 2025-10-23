@@ -575,6 +575,33 @@ class FocusService extends ChangeNotifier {
     });
   }
 
+  // 重置计时器
+  void resetTimer() {
+    resetFocus();
+  }
+
+  // 跳过当前阶段
+  void skipTimer() {
+    // 保存当前状态以便撤销
+    _previousState = _state;
+    _startUndoLifecycle();
+
+    if (_state.mode == FocusMode.work) {
+      // 如果在专注模式，完成专注并开始休息
+      final newEarnedBreakSeconds = (_state.minWorkDuration / 5).floor();
+      _updateState(
+        timeInSeconds: _state.minWorkDuration,
+        earnedBreakSeconds: newEarnedBreakSeconds,
+        isBreakUnlocked: true,
+      );
+      startBreak(); // 跳过专注直接开始休息
+    } else if (_state.mode == FocusMode.rest) {
+      // 如果在休息模式，完成休息并开始下一轮专注
+      endBreak();
+      startFocus(); // 跳过休息直接开始专注
+    }
+  }
+
   // 播放通知铃声
   Future<void> _playNotificationSound() async {
     try {
