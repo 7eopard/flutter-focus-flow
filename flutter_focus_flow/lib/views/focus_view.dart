@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_focus_flow/services/focus_service.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class FocusView extends StatefulWidget {
   const FocusView({super.key});
@@ -13,6 +14,9 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
   late FocusService _focusService;
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
+  late AnimationController _progressController;
+  late Tween<double> _progressTween;
+  late Animation<double> _progressAnimation;
 
   @override
   void initState() {
@@ -30,6 +34,20 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
       curve: Curves.easeOutCubic,
     ));
     
+    // 初始化进度动画控制器，设置快速的更新频率（16ms ≈ 60fps）
+    _progressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    
+    _progressTween = Tween<double>(begin: 0.0, end: 0.0);
+    _progressAnimation = _progressTween.animate(
+      CurvedAnimation(
+        parent: _progressController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    
     _slideController.forward();
   }
 
@@ -38,6 +56,16 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     _focusService = Provider.of<FocusService>(context);
+    
+    // 当进度值变化时，使用动画平滑过渡
+    double targetProgress = _focusService.progressValue;
+    if (_progressTween.end != targetProgress) {
+      _progressTween.begin = _progressAnimation.value;
+      _progressTween.end = targetProgress;
+      _progressController
+        ..reset()
+        ..forward();
+    }
     
     return Scaffold(
       body: SafeArea(
@@ -68,40 +96,39 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
                           ],
                         ),
                       ),
-                      // 圆形进度条
+                      // 圆形进度条 - 使用AnimatedBuilder实现平滑动画
                       SizedBox(
                         width: 300,
                         height: 300,
-                        child: CircularProgressIndicator(
-                          value: _focusService.state.mode == FocusMode.work 
-                              ? (_focusService.state.minWorkDuration > 0 
-                                  ? 1.0 - (_focusService.state.timeInSeconds / _focusService.state.minWorkDuration) 
-                                  : 0)
-                              : (_focusService.state.breakTotalDuration > 0 
-                                  ? 1.0 - (_focusService.state.timeInSeconds / _focusService.state.breakTotalDuration) 
-                                  : 0),
-                          strokeWidth: 16,
-                          backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            _focusService.state.mode == FocusMode.work
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.tertiary,
-                          ),
-                          strokeCap: StrokeCap.round,
+                        child: AnimatedBuilder(
+                          animation: _progressAnimation,
+                          builder: (context, child) {
+                            return CircularProgressIndicator(
+                              value: _progressAnimation.value,
+                              strokeWidth: 16,
+                              backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                _focusService.state.mode == FocusMode.work
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.tertiary,
+                              ),
+                              strokeCap: StrokeCap.round,
+                            );
+                          },
                         ),
                       ),
                       // 时间文本显示在中心
                       Text(
-                        _focusService.formattedTime,
-                        style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: _focusService.state.mode == FocusMode.work
-                              ? Theme.of(context).colorScheme.onPrimaryContainer
-                              : Theme.of(context).colorScheme.onTertiaryContainer,
-                          fontFeatures: const [FontFeature.tabularFigures()], // 确保数字等宽
-                          fontFamily: 'monospace', // 使用等宽字体
-                        ),
-                      ),
+                            _focusService.formattedTime,
+                            style: GoogleFonts.montserrat(
+                              fontSize: 72,
+                              fontWeight: FontWeight.w900,
+                              color: _focusService.state.mode == FocusMode.work
+                                  ? Theme.of(context).colorScheme.onPrimaryContainer
+                                  : Theme.of(context).colorScheme.onTertiaryContainer,
+                              fontFeatures: const [FontFeature.tabularFigures()], // 确保数字等宽
+                            ),
+                          ),
                     ],
                   ),
                 ),
@@ -651,6 +678,8 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _slideController.dispose();
+    _progressController.dispose();
     super.dispose();
   }
 }

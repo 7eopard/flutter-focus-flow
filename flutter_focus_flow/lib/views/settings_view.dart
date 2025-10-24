@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_focus_flow/services/focus_service.dart';
 import 'package:flutter_focus_flow/utils/theme.dart';
@@ -43,7 +44,7 @@ class _SettingsViewState extends State<SettingsView> with TickerProviderStateMix
           content: Row(
             children: [
               Icon(
-                Icons.check_circle_outline,
+                Symbols.check_circle_outline,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               const SizedBox(width: 12),
@@ -287,6 +288,22 @@ class _SettingsViewState extends State<SettingsView> with TickerProviderStateMix
                     color: colorScheme.onSurfaceVariant,
                   ),
                   onTap: () => _showGoalTimeDialog(context, focusService),
+                ),
+                const SizedBox(height: 12),
+                _buildSettingsCard(
+                  context,
+                  title: 'Display Mode',
+                  subtitle: focusService.state.displayMode == DisplayMode.countdown ? 'Countdown' : 'Count Up',
+                  icon: Icons.switch_left_outlined,
+                  iconColor: colorScheme.primary,
+                  trailing: Switch(
+                    value: focusService.state.displayMode == DisplayMode.countdown,
+                    onChanged: (bool value) {
+                      focusService.setDisplayMode(value ? DisplayMode.countdown : DisplayMode.countup);
+                    },
+                    activeColor: colorScheme.primary,
+                  ),
+                  onTap: () {},
                 ),
                 const SizedBox(height: 12),
                 _buildSettingsCard(

@@ -31,6 +31,34 @@ class AppTheme {
         brightness: Brightness.light,
       ),
       textTheme: GoogleFonts.poppinsTextTheme(),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: surfaceColor,
+        indicatorColor: primaryColor.withOpacity(0.12),
+        labelTextStyle: MaterialStateProperty.resolveWith<TextStyle>((states) {
+          if (states.contains(MaterialState.selected)) {
+            return TextStyle(
+              color: primaryColor,
+              fontWeight: FontWeight.w600,
+            );
+          }
+          return TextStyle(
+            color: secondaryColor,
+            fontWeight: FontWeight.w400,
+          );
+        }),
+        iconTheme: MaterialStateProperty.resolveWith<IconThemeData>((states) {
+          if (states.contains(MaterialState.selected)) {
+            return IconThemeData(
+              color: primaryColor,
+              size: 24,
+            );
+          }
+          return IconThemeData(
+            color: secondaryColor,
+            size: 24,
+          );
+        }),
+      ),
     );
   }
 
@@ -42,6 +70,34 @@ class AppTheme {
         brightness: Brightness.dark,
       ),
       textTheme: GoogleFonts.poppinsTextTheme(),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: const Color(0xFF1C1B1F),
+        indicatorColor: primaryColor.withOpacity(0.2),
+        labelTextStyle: MaterialStateProperty.resolveWith<TextStyle>((states) {
+          if (states.contains(MaterialState.selected)) {
+            return TextStyle(
+              color: primaryColor,
+              fontWeight: FontWeight.w600,
+            );
+          }
+          return TextStyle(
+            color: const Color(0xFFCAC4D0),
+            fontWeight: FontWeight.w400,
+          );
+        }),
+        iconTheme: MaterialStateProperty.resolveWith<IconThemeData>((states) {
+          if (states.contains(MaterialState.selected)) {
+            return IconThemeData(
+              color: primaryColor,
+              size: 24,
+            );
+          }
+          return IconThemeData(
+            color: const Color(0xFFCAC4D0),
+            size: 24,
+          );
+        }),
+      ),
     );
   }
 }

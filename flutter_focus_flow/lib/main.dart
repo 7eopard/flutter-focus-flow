@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:flutter_focus_flow/utils/theme.dart';
 import 'package:flutter_focus_flow/services/focus_service.dart';
 import 'package:flutter_focus_flow/views/focus_view.dart';
@@ -88,10 +90,19 @@ class _HomePageState extends State<HomePage> {
           });
         },
         selectedIndex: _selectedIndex,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.access_time_outlined),
-            selectedIcon: Icon(Icons.access_time),
+            icon: Icon(
+              Symbols.timelapse,
+              size: 24,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.74),
+            ),
+            selectedIcon: Icon(
+              Symbols.timelapse,
+              size: 24,
+              fill: 1,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
             label: 'Focus',
           ),
           NavigationDestination(
@@ -100,8 +111,8 @@ class _HomePageState extends State<HomePage> {
             label: 'Tasks',
           ),
           NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
+            icon: Icon(Icons.insert_chart_outlined),
+            selectedIcon: Icon(Icons.insert_chart),
             label: 'Stats',
           ),
           NavigationDestination(

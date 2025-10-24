@@ -9,6 +9,9 @@ enum FocusUiState { idle, runningFocus, runningRest, pausedFocus, pausedRest, ad
 // 定义计时器模式
 enum FocusMode { work, rest }
 
+// 显示模式枚举
+enum DisplayMode { countdown, countup }
+
 // 干扰级别枚举
 enum InterferenceLevel { zero, weak, strong }
 
@@ -26,6 +29,7 @@ class FocusState {
   final int longPressThreshold; // 长按阈值（毫秒）
   final int earnedBreakSeconds; // 积累的可休息时间（秒）
   final bool isBreakUnlocked; // 休息是否已解锁
+  final DisplayMode displayMode; // 显示模式（倒计时/正计时）
   final int? timeAdjustment; // 临时时间调整值（秒），null表示无调整
   final int? deltaAdjustment; // Delta时间调整值（秒），用于显示调整变化，null表示无调整
   final bool hasAppliedAdjustment; // 是否应用了时间调整
@@ -43,6 +47,7 @@ class FocusState {
     this.longPressThreshold = 1000, // 默认1秒长按阈值
     this.earnedBreakSeconds = 0,
     this.isBreakUnlocked = false,
+    this.displayMode = DisplayMode.countdown, // 默认倒计时模式
     this.timeAdjustment,
     this.deltaAdjustment,
     this.hasAppliedAdjustment = false,
@@ -61,6 +66,7 @@ class FocusState {
     int? longPressThreshold,
     int? earnedBreakSeconds,
     bool? isBreakUnlocked,
+    DisplayMode? displayMode,
     int? timeAdjustment,
     int? deltaAdjustment,
     bool? hasAppliedAdjustment,
@@ -78,6 +84,7 @@ class FocusState {
       longPressThreshold: longPressThreshold ?? this.longPressThreshold,
       earnedBreakSeconds: earnedBreakSeconds ?? this.earnedBreakSeconds,
       isBreakUnlocked: isBreakUnlocked ?? this.isBreakUnlocked,
+      displayMode: displayMode ?? this.displayMode,
       timeAdjustment: timeAdjustment ?? this.timeAdjustment,
       deltaAdjustment: deltaAdjustment ?? this.deltaAdjustment,
       hasAppliedAdjustment: hasAppliedAdjustment ?? this.hasAppliedAdjustment,
@@ -100,6 +107,8 @@ class FocusService extends ChangeNotifier {
   Timer? _undoTimer;
   final AudioPlayer _audioPlayer = AudioPlayer();
   FocusState? get previousState => _previousState;
+  // 用于精确进度计算的毫秒计数器
+  int _millisecondCounter = 0;
 
   FocusState _state = const FocusState(
     timeInSeconds: 0,
@@ -126,8 +135,24 @@ class FocusService extends ChangeNotifier {
 
   // 获取格式化的时间显示
   String get formattedTime {
-    final minutes = (_state.timeInSeconds / 60).floor();
-    final seconds = _state.timeInSeconds % 60;
+    int displayTime;
+    
+    if (_state.displayMode == DisplayMode.countdown) {
+      // 倒计时模式：显示剩余时间
+      if (_state.mode == FocusMode.work) {
+        // 工作时显示距离目标的剩余时间
+        displayTime = (_state.minWorkDuration - _state.timeInSeconds).clamp(0, _state.minWorkDuration);
+      } else {
+        // 休息时显示剩余休息时间
+        displayTime = _state.timeInSeconds;
+      }
+    } else {
+      // 正计时模式：显示已过时间
+      displayTime = _state.timeInSeconds;
+    }
+    
+    final minutes = (displayTime / 60).floor();
+    final seconds = displayTime % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
@@ -196,6 +221,7 @@ class FocusService extends ChangeNotifier {
     int? longPressThreshold,
     int? earnedBreakSeconds,
     bool? isBreakUnlocked,
+    DisplayMode? displayMode,
     int? timeAdjustment,
     int? deltaAdjustment,
     bool? hasAppliedAdjustment,
@@ -213,6 +239,7 @@ class FocusService extends ChangeNotifier {
       longPressThreshold: longPressThreshold ?? _state.longPressThreshold,
       earnedBreakSeconds: earnedBreakSeconds ?? _state.earnedBreakSeconds,
       isBreakUnlocked: isBreakUnlocked ?? _state.isBreakUnlocked,
+      displayMode: displayMode ?? _state.displayMode,
       timeAdjustment: timeAdjustment ?? _state.timeAdjustment,
       deltaAdjustment: deltaAdjustment ?? _state.deltaAdjustment,
       hasAppliedAdjustment: hasAppliedAdjustment ?? _state.hasAppliedAdjustment,
@@ -235,6 +262,7 @@ class FocusService extends ChangeNotifier {
     int? longPressThreshold,
     int? earnedBreakSeconds,
     bool? isBreakUnlocked,
+    DisplayMode? displayMode,
     int? timeAdjustment,
     int? deltaAdjustment,
     bool? hasAppliedAdjustment,
@@ -252,6 +280,7 @@ class FocusService extends ChangeNotifier {
       longPressThreshold: longPressThreshold,
       earnedBreakSeconds: earnedBreakSeconds,
       isBreakUnlocked: isBreakUnlocked,
+      displayMode: displayMode,
       timeAdjustment: timeAdjustment,
       deltaAdjustment: deltaAdjustment,
       hasAppliedAdjustment: hasAppliedAdjustment,
@@ -275,6 +304,7 @@ class FocusService extends ChangeNotifier {
     // 如果是首次启动，记录开始时间
     if (_state.timeInSeconds == 0 && _state.mode == FocusMode.work) {
       _sessionStartTime = DateTime.now();
+      _millisecondCounter = 0;
     }
 
     // 如果之前暂停过，计算暂停时间
@@ -285,32 +315,42 @@ class FocusService extends ChangeNotifier {
     }
 
     _updateState(isActive: true, uiState: FocusUiState.runningFocus);
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_state.mode == FocusMode.work) {
-        final newTime = _state.timeInSeconds + 1;
-        final newEarnedBreakSeconds = (newTime / 5).floor();
-        final newIsBreakUnlocked = newTime >= _state.minWorkDuration;
-        
-        _updateState(
-          timeInSeconds: newTime,
-          earnedBreakSeconds: newEarnedBreakSeconds,
-          isBreakUnlocked: newIsBreakUnlocked,
-        );
-        
-        // 检查是否达到最小工作目标
-        if (newTime >= _state.minWorkDuration && _state.uiState != FocusUiState.goalMet) {
-          _updateState(uiState: FocusUiState.goalMet);
-          // 播放铃声提醒用户工作时间结束，可以开始休息了
-          _playNotificationSound();
-        }
-      } else if (_state.mode == FocusMode.rest) {
-        if (_state.timeInSeconds > 0) {
-          _updateState(timeInSeconds: _state.timeInSeconds - 1);
-        } else {
-          // 休息时间结束，播放铃声提醒用户休息时间结束
-          _playNotificationSound();
-          // 自动切换回工作模式
-          endBreak();
+    
+    // 提高计时器频率到100毫秒，实现更平滑的进度条动画
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      _millisecondCounter += 100;
+      
+      // 每100毫秒通知一次UI更新，使进度条平滑变化
+      notifyListeners();
+      
+      // 每秒（10次循环）更新一次实际时间值
+      if (_millisecondCounter % 1000 == 0) {
+        if (_state.mode == FocusMode.work) {
+          final newTime = _state.timeInSeconds + 1;
+          final newEarnedBreakSeconds = (newTime / 5).floor();
+          final newIsBreakUnlocked = newTime >= _state.minWorkDuration;
+          
+          _updateState(
+            timeInSeconds: newTime,
+            earnedBreakSeconds: newEarnedBreakSeconds,
+            isBreakUnlocked: newIsBreakUnlocked,
+          );
+          
+          // 检查是否达到最小工作目标
+          if (newTime >= _state.minWorkDuration && _state.uiState != FocusUiState.goalMet) {
+            _updateState(uiState: FocusUiState.goalMet);
+            // 播放铃声提醒用户工作时间结束，可以开始休息了
+            _playNotificationSound();
+          }
+        } else if (_state.mode == FocusMode.rest) {
+          if (_state.timeInSeconds > 0) {
+            _updateState(timeInSeconds: _state.timeInSeconds - 1);
+          } else {
+            // 休息时间结束，播放铃声提醒用户休息时间结束
+            _playNotificationSound();
+            // 自动切换回工作模式
+            endBreak();
+          }
         }
       }
     });
@@ -333,6 +373,11 @@ class FocusService extends ChangeNotifier {
       uiState: FocusUiState.adjusting, // 直接进入调整状态
       deltaAdjustment: 0, // 初始化delta调整值
     );
+  }
+  
+  // 重置毫秒计数器（在模式切换或其他需要重置精确计时的地方调用）
+  void _resetMillisecondCounter() {
+    _millisecondCounter = 0;
   }
 
   void toggleFocus() {
@@ -426,6 +471,48 @@ class FocusService extends ChangeNotifier {
   // 设置最小专注时间（在设置页面使用）
   void setMinFocusTime(int seconds) {
     _updateState(minWorkDuration: seconds);
+  }
+  
+  // 设置显示模式（倒计时/正计时）
+  void setDisplayMode(DisplayMode mode) {
+    _updateState(displayMode: mode);
+  }
+  
+  // 获取当前进度条的值（0.0-1.0），考虑毫秒级精度
+  double get progressValue {
+    // 根据毫秒计数器计算当前秒数的小数部分
+    double fractionalSeconds = _millisecondCounter % 1000 / 1000.0;
+    double preciseTimeInSeconds;
+    
+    if (_state.mode == FocusMode.work) {
+      preciseTimeInSeconds = _state.timeInSeconds.toDouble() + fractionalSeconds;
+    } else {
+      preciseTimeInSeconds = _state.timeInSeconds.toDouble() - fractionalSeconds;
+    }
+    
+    if (_state.displayMode == DisplayMode.countdown) {
+      // 倒计时模式：进度条从1.0减少到0.0
+      if (_state.mode == FocusMode.work) {
+        return (_state.minWorkDuration > 0) 
+            ? (_state.minWorkDuration - preciseTimeInSeconds) / _state.minWorkDuration 
+            : 0.0;
+      } else {
+        return (_state.breakTotalDuration > 0) 
+            ? preciseTimeInSeconds / _state.breakTotalDuration 
+            : 0.0;
+      }
+    } else {
+      // 正计时模式：进度条从0.0增加到1.0
+      if (_state.mode == FocusMode.work) {
+        return (_state.minWorkDuration > 0) 
+            ? preciseTimeInSeconds / _state.minWorkDuration 
+            : 0.0;
+      } else {
+        return (_state.breakTotalDuration > 0) 
+            ? (_state.breakTotalDuration - preciseTimeInSeconds) / _state.breakTotalDuration 
+            : 0.0;
+      }
+    }
   }
 
   // 开始时间调整 - 现在不再需要此方法，因为暂停后直接进入调整模式

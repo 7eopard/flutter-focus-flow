@@ -44,6 +44,9 @@ dependencies:
   # Typography and fonts
   google_fonts: ^6.2.1
   
+  # Material Symbols icons
+  material_symbols_icons: ^4.2719.3
+  
   # Material 3 dynamic theming
   dynamic_color: ^1.2.0
   

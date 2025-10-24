@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 
 class StatsView extends StatelessWidget {
   const StatsView({super.key});
@@ -43,7 +44,7 @@ class StatsView extends StatelessWidget {
                     Row(
                       children: [
                         Icon(
-                          Icons.schedule,
+                          Symbols.schedule,
                           color: Theme.of(context).colorScheme.primary,
                           size: 24,
                         ),
@@ -106,7 +107,7 @@ class StatsView extends StatelessWidget {
                     Row(
                       children: [
                         Icon(
-                          Icons.task_alt,
+                          Symbols.task_alt,
                           color: Theme.of(context).colorScheme.secondary,
                           size: 24,
                         ),
@@ -169,7 +170,7 @@ class StatsView extends StatelessWidget {
                     Row(
                       children: [
                         Icon(
-                          Icons.local_fire_department,
+                          Symbols.local_fire_department,
                           color: Theme.of(context).colorScheme.tertiary,
                           size: 24,
                         ),
