@@ -68,18 +68,12 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
                           ],
                         ),
                       ),
-                      // 圆形进度条
+                      // 圆形进度条 - 使用focusService中的progressValue
                       SizedBox(
                         width: 300,
                         height: 300,
                         child: CircularProgressIndicator(
-                          value: _focusService.state.mode == FocusMode.work 
-                              ? (_focusService.state.minWorkDuration > 0 
-                                  ? 1.0 - (_focusService.state.timeInSeconds / _focusService.state.minWorkDuration) 
-                                  : 0)
-                              : (_focusService.state.breakTotalDuration > 0 
-                                  ? 1.0 - (_focusService.state.timeInSeconds / _focusService.state.breakTotalDuration) 
-                                  : 0),
+                          value: _focusService.progressValue,
                           strokeWidth: 16,
                           backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
                           valueColor: AlwaysStoppedAnimation<Color>(
