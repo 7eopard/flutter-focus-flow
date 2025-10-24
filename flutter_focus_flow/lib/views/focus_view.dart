@@ -115,6 +115,7 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
                               strokeCap: StrokeCap.round,
                             );
                           },
+                        )
                         ),
                       ),
                       // 时间文本显示在中心
