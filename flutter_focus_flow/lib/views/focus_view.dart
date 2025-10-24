@@ -34,10 +34,10 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
       curve: Curves.easeOutCubic,
     ));
     
-    // 初始化进度动画控制器，设置快速的更新频率（16ms ≈ 60fps）
+    // 初始化进度动画控制器，与服务端100ms的更新频率匹配，确保动画流畅
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 100),
     );
     
     _progressTween = Tween<double>(begin: 0.0, end: 0.0);

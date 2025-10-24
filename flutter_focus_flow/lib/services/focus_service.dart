@@ -493,8 +493,10 @@ class FocusService extends ChangeNotifier {
     if (_state.displayMode == DisplayMode.countdown) {
       // 倒计时模式：进度条从1.0减少到0.0
       if (_state.mode == FocusMode.work) {
+        // 使用adjustedTimeInSeconds来计算进度，确保考虑了时间调整
+        double adjustedTime = adjustedTimeInSeconds + fractionalSeconds;
         return (_state.minWorkDuration > 0) 
-            ? (_state.minWorkDuration - preciseTimeInSeconds) / _state.minWorkDuration 
+            ? (_state.minWorkDuration - adjustedTime) / _state.minWorkDuration 
             : 0.0;
       } else {
         return (_state.breakTotalDuration > 0) 
@@ -502,10 +504,12 @@ class FocusService extends ChangeNotifier {
             : 0.0;
       }
     } else {
-      // 正计时模式：进度条从0.0增加到1.0
+      // 正计时模式：进度条从0.0增长到1.0
       if (_state.mode == FocusMode.work) {
+        // 使用adjustedTimeInSeconds来计算进度，确保考虑了时间调整
+        double adjustedTime = adjustedTimeInSeconds + fractionalSeconds;
         return (_state.minWorkDuration > 0) 
-            ? preciseTimeInSeconds / _state.minWorkDuration 
+            ? adjustedTime / _state.minWorkDuration 
             : 0.0;
       } else {
         return (_state.breakTotalDuration > 0) 
