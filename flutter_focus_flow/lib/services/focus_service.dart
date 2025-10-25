@@ -201,8 +201,33 @@ class FocusService extends ChangeNotifier {
 
   // 获取格式化的时间显示
   String get formattedTime {
-    final minutes = (_state.timeInSeconds / 60).floor();
-    final seconds = _state.timeInSeconds % 60;
+    // 根据显示模式计算要显示的时间值
+    int displayTimeSeconds;
+    
+    if (_state.displayMode == DisplayMode.countdown) {
+      // 倒计时模式：从目标时间减去已用时间
+      if (_state.mode == FocusMode.work) {
+        // 工作模式：从最小工作时长倒计时
+        displayTimeSeconds = _state.minWorkDuration - _state.timeInSeconds;
+        if (displayTimeSeconds < 0) displayTimeSeconds = 0;
+      } else {
+        // 休息模式：从总休息时长倒计时
+        displayTimeSeconds = _state.timeInSeconds;
+      }
+    } else {
+      // 正计时模式：直接显示已用时间
+      if (_state.mode == FocusMode.work) {
+        // 工作模式：直接显示已工作时间
+        displayTimeSeconds = _state.timeInSeconds;
+      } else {
+        // 休息模式：显示已休息时间（从总休息时长减去剩余时间）
+        displayTimeSeconds = _state.breakTotalDuration - _state.timeInSeconds;
+        if (displayTimeSeconds < 0) displayTimeSeconds = 0;
+      }
+    }
+    
+    final minutes = (displayTimeSeconds / 60).floor();
+    final seconds = displayTimeSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
   
