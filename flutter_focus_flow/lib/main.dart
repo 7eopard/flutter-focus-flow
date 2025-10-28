@@ -10,7 +10,15 @@ import 'package:flutter_focus_flow/views/tasks_view.dart';
 import 'package:flutter_focus_flow/views/stats_view.dart';
 import 'package:flutter_focus_flow/views/settings_view.dart';
 
-void main() {
+import 'package:flutter_focus_flow/services/notification_service.dart';
+import 'package:flutter_focus_flow/services/timer_service.dart';
+import 'package:flutter_focus_flow/services/audio_service.dart';
+import 'package:flutter_focus_flow/services/undo_service.dart';
+import 'package:flutter_focus_flow/services/settings_service.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService().init();
   runApp(const MyApp());
 }
 
@@ -19,8 +27,37 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => FocusService(),
+    return MultiProvider(
+      providers: [
+        Provider<NotificationService>(create: (_) => NotificationService()),
+        ChangeNotifierProvider<TimerService>(create: (_) => TimerService()),
+        ChangeNotifierProvider<AudioService>(create: (_) => AudioService()),
+        ChangeNotifierProvider<UndoService>(create: (_) => UndoService()),
+        ChangeNotifierProvider<SettingsService>(create: (_) => SettingsService()),
+        ChangeNotifierProxyProvider5<
+            NotificationService,
+            TimerService,
+            AudioService,
+            UndoService,
+            SettingsService,
+            FocusService>(
+          create: (context) => FocusService(
+            notificationService: Provider.of<NotificationService>(context, listen: false),
+            timerService: Provider.of<TimerService>(context, listen: false),
+            audioService: Provider.of<AudioService>(context, listen: false),
+            undoService: Provider.of<UndoService>(context, listen: false),
+            settingsService: Provider.of<SettingsService>(context, listen: false),
+          ),
+          update: (context, notificationService, timerService, audioService, undoService, settingsService, previousFocusService) =>
+              FocusService(
+            notificationService: notificationService,
+            timerService: timerService,
+            audioService: audioService,
+            undoService: undoService,
+            settingsService: settingsService,
+          ),
+        ),
+      ],
       child: DynamicColorBuilder(
         builder: (lightColorScheme, darkColorScheme) {
           return MaterialApp(

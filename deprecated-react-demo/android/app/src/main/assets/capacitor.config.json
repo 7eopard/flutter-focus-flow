@@ -1,0 +1,6 @@
+{
+	"appId": "com.example.pomodoro",
+	"appName": "Pomodoro",
+	"webDir": "dist",
+	"bundledWebRuntime": false
+}

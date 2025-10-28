@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_focus_flow/services/focus_service.dart';
+import 'package:flutter_focus_flow/services/timer_service.dart';
 import 'package:flutter_focus_flow/utils/theme.dart';
+import 'package:flutter_focus_flow/views/dev_view.dart';
 import 'package:provider/provider.dart';
 
 class SettingsView extends StatefulWidget {
@@ -280,7 +282,7 @@ class _SettingsViewState extends State<SettingsView> with TickerProviderStateMix
                 _buildSettingsCard(
                   context,
                   title: 'Focus Goal',
-                  subtitle: '${focusService.state.minWorkDuration ~/ 60} minutes',
+                  subtitle: '${focusService.timerService.state.minWorkDuration ~/ 60} minutes',
                   icon: Icons.timer_outlined,
                   iconColor: colorScheme.tertiary,
                   trailing: Icon(
@@ -293,11 +295,11 @@ class _SettingsViewState extends State<SettingsView> with TickerProviderStateMix
                 _buildSettingsCard(
                   context,
                   title: 'Display Mode',
-                  subtitle: focusService.state.displayMode == DisplayMode.countdown ? 'Countdown' : 'Count Up',
+                  subtitle: focusService.timerService.state.displayMode == DisplayMode.countdown ? 'Countdown' : 'Count Up',
                   icon: Icons.switch_left_outlined,
                   iconColor: colorScheme.primary,
                   trailing: Switch(
-                    value: focusService.state.displayMode == DisplayMode.countdown,
+                    value: focusService.timerService.state.displayMode == DisplayMode.countdown,
                     onChanged: (bool value) {
                       focusService.setDisplayMode(value ? DisplayMode.countdown : DisplayMode.countup);
                     },
@@ -361,6 +363,24 @@ class _SettingsViewState extends State<SettingsView> with TickerProviderStateMix
               delegate: SliverChildListDelegate([
                 _buildSettingsCard(
                   context,
+                  title: 'Developer Options',
+                  subtitle: 'Debug and test features',
+                  icon: Icons.developer_mode,
+                  iconColor: colorScheme.secondary,
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const DevView()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildSettingsCard(
+                  context,
                   title: 'Reset App',
                   subtitle: 'Force reset to idle state',
                   icon: Icons.refresh_outlined,
@@ -394,7 +414,7 @@ class _SettingsViewState extends State<SettingsView> with TickerProviderStateMix
   }
 
   void _showGoalTimeDialog(BuildContext context, FocusService focusService) {
-    int initialMinutes = (focusService.state.minWorkDuration ~/ 60);
+    int initialMinutes = (focusService.timerService.state.minWorkDuration ~/ 60);
     int selectedMinutes = initialMinutes;
     
     // 预定义的时间选项
