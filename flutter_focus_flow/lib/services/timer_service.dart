@@ -10,6 +10,9 @@ enum FocusMode { work, rest }
 // 显示模式枚举
 enum DisplayMode { countdown, countup }
 
+// 定义一个哨兵对象，用于区分“未提供”和“提供null”
+const _sentinel = Object();
+
 // 定义计时器状态
 class FocusState {
   final int timeInSeconds;
@@ -62,8 +65,8 @@ class FocusState {
     int? earnedBreakSeconds,
     bool? isBreakUnlocked,
     DisplayMode? displayMode,
-    int? timeAdjustment,
-    int? deltaAdjustment,
+    dynamic timeAdjustment = _sentinel,
+    dynamic deltaAdjustment = _sentinel,
     bool? hasAppliedAdjustment,
   }) {
     return FocusState(
@@ -80,8 +83,8 @@ class FocusState {
       earnedBreakSeconds: earnedBreakSeconds ?? this.earnedBreakSeconds,
       isBreakUnlocked: isBreakUnlocked ?? this.isBreakUnlocked,
       displayMode: displayMode ?? this.displayMode,
-      timeAdjustment: timeAdjustment ?? this.timeAdjustment,
-      deltaAdjustment: deltaAdjustment ?? this.deltaAdjustment,
+      timeAdjustment: timeAdjustment == _sentinel ? this.timeAdjustment : timeAdjustment as int?,
+      deltaAdjustment: deltaAdjustment == _sentinel ? this.deltaAdjustment : deltaAdjustment as int?,
       hasAppliedAdjustment: hasAppliedAdjustment ?? this.hasAppliedAdjustment,
     );
   }
@@ -132,8 +135,8 @@ class TimerService extends ChangeNotifier {
     int? earnedBreakSeconds,
     bool? isBreakUnlocked,
     DisplayMode? displayMode,
-    int? timeAdjustment,
-    int? deltaAdjustment,
+    dynamic timeAdjustment = _sentinel,
+    dynamic deltaAdjustment = _sentinel,
     bool? hasAppliedAdjustment,
   }) {
     _state = _state.copyWith(
@@ -166,7 +169,6 @@ class TimerService extends ChangeNotifier {
     
     _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       _millisecondCounter += 100;
-      notifyListeners(); // Notify for smooth progress bar updates
 
       if (_millisecondCounter % 1000 == 0) {
         if (_state.mode == FocusMode.work) {
@@ -287,29 +289,41 @@ class TimerService extends ChangeNotifier {
       preciseTimeInSeconds = _state.timeInSeconds.toDouble() - fractionalSeconds;
     }
     
+    double value;
     if (_state.displayMode == DisplayMode.countdown) {
       if (_state.mode == FocusMode.work) {
         double adjustedTime = _state.timeInSeconds + fractionalSeconds;
-        return (_state.minWorkDuration > 0) 
+        value = (_state.minWorkDuration > 0) 
             ? (_state.minWorkDuration - adjustedTime) / _state.minWorkDuration 
             : 0.0;
       } else {
-        return (_state.breakTotalDuration > 0) 
+        value = (_state.breakTotalDuration > 0) 
             ? preciseTimeInSeconds / _state.breakTotalDuration 
             : 0.0;
       }
     } else {
       if (_state.mode == FocusMode.work) {
         double adjustedTime = _state.timeInSeconds + fractionalSeconds;
-        return (_state.minWorkDuration > 0) 
+        value = (_state.minWorkDuration > 0) 
             ? adjustedTime / _state.minWorkDuration 
             : 0.0;
       } else {
-        return (_state.breakTotalDuration > 0) 
+        value = (_state.breakTotalDuration > 0) 
             ? (_state.breakTotalDuration - preciseTimeInSeconds) / _state.breakTotalDuration 
             : 0.0;
       }
     }
+
+    // Log for debugging
+    if (kDebugMode) {
+      print('--- Progress Calculation ---');
+      print('Mode: ${_state.mode}, Display: ${_state.displayMode}');
+      print('TimeInSeconds: ${_state.timeInSeconds}, MinWork: ${_state.minWorkDuration}, BreakTotal: ${_state.breakTotalDuration}');
+      print('Calculated Progress Value: $value');
+      print('--------------------------');
+    }
+
+    return value.clamp(0.0, 1.0);
   }
 
   @override

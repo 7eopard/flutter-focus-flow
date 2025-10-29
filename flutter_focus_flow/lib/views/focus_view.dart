@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_focus_flow/services/focus_service.dart';
 import 'package:provider/provider.dart';
@@ -16,6 +17,7 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
   late AnimationController _progressController;
   late Tween<double> _progressTween;
   late Animation<double> _progressAnimation;
+  bool _isSheetOpen = false; // 防止重复打开工作表的标志
 
 
 
@@ -45,14 +47,24 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
     _focusService.addListener(_onFocusServiceStateChanged);
   }
 
-  void _onFocusServiceStateChanged() {
-    if (_focusService.state.uiState == FocusUiState.adjusting) {
-      _showAdjustmentSheet(_focusService).whenComplete(() {
-        // 如果用户通过拖拽关闭了sheet，但状态仍然是adjusting，则认为他们取消了操作
-        if (_focusService.state.uiState == FocusUiState.adjusting) {
-          _focusService.discardTimeAdjustment();
-        }
-      });
+  void _onFocusServiceStateChanged() async {
+    if (kDebugMode) print('[FocusView] State changed to: ${_focusService.state.uiState}');
+    // 如果状态变为“调整中”且当前没有打开的工作表，则显示工作表
+    if (_focusService.state.uiState == FocusUiState.adjusting && !_isSheetOpen) {
+      _isSheetOpen = true; // 设置标志，表示工作表已打开
+      final result = await _showAdjustmentSheet(_focusService);
+      _isSheetOpen = false; // 重置标志
+
+      // 在异步操作后检查小部件是否仍然挂载
+      if (!mounted) return;
+
+      // 根据工作表返回的结果执行操作
+      if (result == true) {
+        _focusService.applyTimeAdjustment();
+      } else {
+        // 如果用户取消（通过按钮或滑动），则丢弃调整
+        _focusService.discardTimeAdjustment();
+      }
     }
   }
 
@@ -66,11 +78,16 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
         // 当进度值变化时，使用动画平滑过渡
         double targetProgress = focusService.progressValue;
         if (_progressTween.end != targetProgress) {
-          _progressTween.begin = _progressAnimation.value;
-          _progressTween.end = targetProgress;
-          _progressController
-            ..reset()
-            ..forward();
+          // 使用帧后回调来安全地启动动画，避免在build方法中直接操作控制器
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _progressTween.begin = _progressAnimation.value;
+              _progressTween.end = targetProgress;
+              _progressController
+                ..reset()
+                ..forward();
+            }
+          });
         }
 
         return Scaffold(
@@ -203,31 +220,7 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
         );
 
       case FocusUiState.adjusting:
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // "Undo" button
-            FloatingActionButton(
-              heroTag: 'discard_button',
-              onPressed: () {
-                Navigator.of(context).pop();
-                focusService.discardTimeAdjustment();
-              },
-              tooltip: 'Discard Changes',
-              child: const Icon(Icons.close),
-            ),
-            const SizedBox(width: 16),
-            FloatingActionButton.extended(
-              heroTag: 'apply_button',
-              onPressed: () {
-                Navigator.of(context).pop();
-                focusService.applyTimeAdjustment();
-              },
-              icon: const Icon(Icons.check),
-              label: const Text('Apply'),
-            ),
-          ],
-        );
+        return const SizedBox.shrink(); // 调整UI现在位于BottomSheet中，FAB工具栏不应显示任何内容
 
       case FocusUiState.runningRest:
         return Row(
@@ -286,7 +279,8 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
   }
 
   // 显示调整时间的BottomSheet
-  Future<void> _showAdjustmentSheet(FocusService focusService) {
+  Future<bool?> _showAdjustmentSheet(FocusService focusService) {
+    if (kDebugMode) print('[FocusView] _showAdjustmentSheet called.');
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -337,6 +331,22 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
                   foregroundColor: Theme.of(context).colorScheme.onTertiaryContainer,
                   minimumSize: const Size.fromHeight(50),
                 ),
+              ),
+              const SizedBox(height: 20),
+              // 操作按钮，现在移到工作表内部
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false), // 返回 false 表示丢弃
+                    child: const Text('Discard'),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(true), // 返回 true 表示应用
+                    child: const Text('Apply'),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
             ],

@@ -15,6 +15,7 @@ class FocusService extends ChangeNotifier {
   final AudioService _audioService;
   final UndoService _undoService;
   final SettingsService _settingsService;
+  bool _isDisposed = false;
 
   FocusService({required NotificationService notificationService, required TimerService timerService, required AudioService audioService, required UndoService undoService, required SettingsService settingsService})
       : _notificationService = notificationService,
@@ -135,6 +136,7 @@ class FocusService extends ChangeNotifier {
   }
 
   void _onTimerServiceStateChanged() {
+    if (_isDisposed) return; // Prevent execution if FocusService is disposed
     final state = _timerService.state;
     // Update notification
     if (state.mode == FocusMode.work) {
@@ -177,6 +179,7 @@ class FocusService extends ChangeNotifier {
   }
 
   void pauseFocus() {
+    if (kDebugMode) print('[FocusService] pauseFocus called. Setting UI state to adjusting.');
     if (!_timerService.state.isActive) return; // 如果已经暂停，则不执行操作
 
     _notificationService.cancelOngoingNotification();
@@ -187,7 +190,7 @@ class FocusService extends ChangeNotifier {
     _timerService.pauseTimer();
     // _pauseStartTime = DateTime.now(); // This will be handled by a separate service later
     _timerService.setUiState(FocusUiState.adjusting); // 直接进入调整状态
-    // _timerService.setDeltaAdjustment(0); // Initialize delta adjustment value
+    _timerService.setDeltaAdjustment(0); // Initialize delta adjustment value
   }
   
 
@@ -320,10 +323,7 @@ class FocusService extends ChangeNotifier {
 
   // 丢弃时间调整并恢复计时
   void discardTimeAdjustment() {
-    _timerService.setTimeAdjustment(null); // 清除临时调整
-    _timerService.setDeltaAdjustment(null); // 清除delta调整
-    _timerService.setHasAppliedAdjustment(false); // 重置已应用调整标志
-    startFocus(); // 丢弃后恢复计时
+    undo();
   }
 
   // 高级休息：将当前时间调整到最小专注时间并立即开始休息
@@ -366,33 +366,39 @@ class FocusService extends ChangeNotifier {
   // 撤销上一步操作
   void undo() {
     final stateToRestore = _undoService.restoreState();
-    
-    if (stateToRestore != null) {
-      // 如果之前的状态是激活的，需要重新启动计时器
-      final wasActive = stateToRestore.isActive;
-      
-      _timerService.setTime(stateToRestore.timeInSeconds);
-      _timerService.setMode(stateToRestore.mode);
-      _timerService.setUiState(stateToRestore.uiState);
-      _timerService.setBreakTotalDuration(stateToRestore.breakTotalDuration);
-      _timerService.setMinWorkDuration(stateToRestore.minWorkDuration);
-      _timerService.setSessionPauseCount(stateToRestore.sessionPauseCount);
-      _timerService.setSessionTotalPausedTime(stateToRestore.sessionTotalPausedTime);
-      _timerService.setSessionAdjustments(stateToRestore.sessionAdjustments);
-      _timerService.setTimeAdjustment(stateToRestore.timeAdjustment);
-      _timerService.setDeltaAdjustment(stateToRestore.deltaAdjustment);
-      _timerService.setHasAppliedAdjustment(false); // 重置已应用调整标志
-      
-      if (wasActive) {
-        // 恢复计时器状态 - 重新启动计时器
-        startFocus();
-      } else {
-        // 如果之前是暂停的，确保计时器已停止
-        _timerService.pauseTimer();
-      }
-      
-      notifyListeners();
+    if (stateToRestore == null) return;
+
+    // 关键修复：在进行批量状态更新之前，暂时移除监听器，以防止在状态不一致时触发UI重建。
+    // 这是为了避免在多个setter调用期间发生所谓的“通知风暴”。
+    _timerService.removeListener(_onTimerServiceStateChanged);
+
+    final wasActive = stateToRestore.isActive;
+
+    // 确保在恢复UI状态之前，先恢复计时器的运行状态
+    if (wasActive) {
+      _timerService.startTimer();
     }
+    
+    _timerService.setTime(stateToRestore.timeInSeconds);
+    _timerService.setMode(stateToRestore.mode);
+    _timerService.setUiState(stateToRestore.uiState);
+    _timerService.setBreakTotalDuration(stateToRestore.breakTotalDuration);
+    _timerService.setMinWorkDuration(stateToRestore.minWorkDuration);
+    _timerService.setSessionPauseCount(stateToRestore.sessionPauseCount);
+    _timerService.setSessionTotalPausedTime(stateToRestore.sessionTotalPausedTime);
+    _timerService.setSessionAdjustments(stateToRestore.sessionAdjustments);
+    _timerService.setTimeAdjustment(stateToRestore.timeAdjustment);
+    _timerService.setDeltaAdjustment(stateToRestore.deltaAdjustment);
+    _timerService.setHasAppliedAdjustment(false); // 重置已应用调整标志
+    
+    if (!wasActive) {
+      // 如果之前是暂停的，确保计时器已停止
+      _timerService.pauseTimer();
+    }
+
+    // 状态恢复完成后，重新添加监听器并通知UI进行单次、一致的更新。
+    _timerService.addListener(_onTimerServiceStateChanged);
+    notifyListeners();
   }
 
 
@@ -426,8 +432,7 @@ class FocusService extends ChangeNotifier {
   @override
   void dispose() {
     _timerService.removeListener(_onTimerServiceStateChanged);
-    _undoService.dispose(); // Dispose UndoService
-    _settingsService.dispose(); // Dispose SettingsService
+    _isDisposed = true;
     super.dispose();
   }
 }
