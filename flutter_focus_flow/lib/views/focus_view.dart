@@ -296,81 +296,106 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
   }
 
   // 显示调整时间的BottomSheet
-  Future<bool?> _showAdjustmentSheet(FocusService focusService) {
+  Future<bool?> _showAdjustmentSheet(FocusService focusService) async {
     if (kDebugMode) print('[FocusView] _showAdjustmentSheet called.');
-    return showModalBottomSheet(
+    
+    // showModalBottomSheet默认允许点击外部区域关闭
+    final result = await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Adjust Time', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  FilledButton.tonal(
-                    onPressed: () => focusService.adjustTime(-30),
-                    child: const Text('-30s'),
-                  ),
-                  Text(
-                    '${focusService.deltaAdjustmentInSeconds >= 0 ? '+' : ''}${focusService.deltaAdjustmentInSeconds}s',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+        return PopScope(
+          canPop: false, // 禁止默认返回行为，我们自己处理
+          onPopInvokedWithResult: (bool didPop, Object? result) async {
+            if (!didPop) { // 如果didPop为false，说明是按下返回键但未退出
+              // 当用户按返回键时，自动丢弃调整
+              focusService.discardTimeAdjustment();
+              Navigator.of(context).pop(); // 再次调用pop来关闭bottom sheet
+            }
+          },
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 20,
+              right: 20,
+              top: 20,
+            ),
+            // 使用Consumer监听FocusService状态变化
+            child: Consumer<FocusService>(
+              builder: (context, focusService, child) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Adjust Time', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        FilledButton.tonal(
+                          onPressed: () => focusService.adjustTime(-30),
+                          child: const Text('-30s'),
                         ),
-                  ),
-                  FilledButton.tonal(
-                    onPressed: () => focusService.adjustTime(30),
-                    child: const Text('+30s'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // "Skip to Rest" button, as it was in the old adjusting UI
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  focusService.advancedBreak();
-                },
-                icon: const Icon(Icons.fast_forward),
-                label: const Text('Skip to Rest'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
-                  foregroundColor: Theme.of(context).colorScheme.onTertiaryContainer,
-                  minimumSize: const Size.fromHeight(50),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // 操作按钮，现在移到工作表内部
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false), // 返回 false 表示丢弃
-                    child: const Text('Discard'),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton(
-                    onPressed: () => Navigator.of(context).pop(true), // 返回 true 表示应用
-                    child: const Text('Apply'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-            ],
+                        Text(
+                          '${focusService.deltaAdjustmentInSeconds >= 0 ? '+' : ''}${focusService.deltaAdjustmentInSeconds}s',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () => focusService.adjustTime(30),
+                          child: const Text('+30s'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    // "Skip to Rest" button, as it was in the old adjusting UI
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        focusService.advancedBreak();
+                      },
+                      icon: const Icon(Icons.fast_forward),
+                      label: const Text('Skip to Rest'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+                        foregroundColor: Theme.of(context).colorScheme.onTertiaryContainer,
+                        minimumSize: const Size.fromHeight(50),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // 操作按钮，现在移到工作表内部
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false), // 返回 false 表示丢弃
+                          child: const Text('Discard'),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: () => Navigator.of(context).pop(true), // 返回 true 表示应用
+                          child: const Text('Apply'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                );
+              },
+            ),
           ),
         );
       },
     );
+    
+    // 如果返回值为null（例如通过点击外部区域关闭），则执行丢弃操作
+    if (result == null) {
+      focusService.discardTimeAdjustment();
+      return false; // 返回false表示已丢弃
+    }
+    
+    return result;
   }
 
   void _showSetGoalDialog(BuildContext context, FocusService focusService) {
