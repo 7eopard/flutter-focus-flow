@@ -48,14 +48,7 @@ class MyApp extends StatelessWidget {
             undoService: Provider.of<UndoService>(context, listen: false),
             settingsService: Provider.of<SettingsService>(context, listen: false),
           ),
-          update: (context, notificationService, timerService, audioService, undoService, settingsService, previousFocusService) =>
-              FocusService(
-            notificationService: notificationService,
-            timerService: timerService,
-            audioService: audioService,
-            undoService: undoService,
-            settingsService: settingsService,
-          ),
+          update: (context, notificationService, timerService, audioService, undoService, settingsService, previousFocusService) => previousFocusService!
         ),
       ],
       child: DynamicColorBuilder(

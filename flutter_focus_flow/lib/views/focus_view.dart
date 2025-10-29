@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_focus_flow/services/focus_service.dart';
 import 'package:provider/provider.dart';
@@ -48,7 +47,6 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
   }
 
   void _onFocusServiceStateChanged() async {
-    if (kDebugMode) print('[FocusView] State changed to: ${_focusService.state.uiState}');
     // 如果状态变为“调整中”且当前没有打开的工作表，则显示工作表
     if (_focusService.state.uiState == FocusUiState.adjusting && !_isSheetOpen) {
       _isSheetOpen = true; // 设置标志，表示工作表已打开
@@ -70,103 +68,99 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<FocusService>(
-      builder: (context, focusService, child) {
-        _focusService = focusService;
-        final currentUiState = focusService.state.uiState;
+    final focusService = Provider.of<FocusService>(context);
+    final currentUiState = focusService.state.uiState;
 
-        // 当进度值变化时，使用动画平滑过渡
-        double targetProgress = focusService.progressValue;
-        if (_progressTween.end != targetProgress) {
-          // 使用帧后回调来安全地启动动画，避免在build方法中直接操作控制器
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _progressTween.begin = _progressAnimation.value;
-              _progressTween.end = targetProgress;
-              _progressController
-                ..reset()
-                ..forward();
-            }
-          });
+    // 当进度值变化时，使用动画平滑过渡
+    double targetProgress = focusService.progressValue;
+    if (_progressTween.end != targetProgress) {
+      // 使用帧后回调来安全地启动动画，避免在build方法中直接操作控制器
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _progressTween.begin = _progressAnimation.value;
+          _progressTween.end = targetProgress;
+          _progressController
+            ..reset()
+            ..forward();
         }
+      });
+    }
 
-        return Scaffold(
-          body: SafeArea(
-            child: Column(
-              children: [
-                // Timer display - 使用圆形进度条，类似Kotlin demo的样式
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    child: Center(
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // 背景装饰
-                          Container(
-                            width: 320,
-                            height: 320,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
-                                  blurRadius: 20,
-                                  spreadRadius: 5,
-                                ),
-                              ],
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Timer display - 使用圆形进度条，类似Kotlin demo的样式
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                child: Center(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // 背景装饰
+                      Container(
+                        width: 320,
+                        height: 320,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
+                              blurRadius: 20,
+                              spreadRadius: 5,
                             ),
-                          ),
-                          // 圆形进度条 - 使用AnimatedBuilder实现平滑动画
-                          SizedBox(
-                            width: 300,
-                            height: 300,
-                            child: AnimatedBuilder(
-                              animation: _progressAnimation,
-                              builder: (context, child) {
-                                return CircularProgressIndicator(
-                                  value: _progressAnimation.value,
-                                  strokeWidth: 16,
-                                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    focusService.state.mode == FocusMode.work
-                                        ? Theme.of(context).colorScheme.primary
-                                        : Theme.of(context).colorScheme.tertiary,
-                                  ),
-                                  strokeCap: StrokeCap.round,
-                                );
-                              },
-                            ),
-                          ),
-                          // 时间文本显示在中心
-                          Text(
-                            focusService.formattedTime,
-                            style: GoogleFonts.montserrat(
-                              fontSize: 72,
-                              fontWeight: FontWeight.w900,
-                              color: focusService.state.mode == FocusMode.work
-                                  ? Theme.of(context).colorScheme.onPrimaryContainer
-                                  : Theme.of(context).colorScheme.onTertiaryContainer,
-                              fontFeatures: const [FontFeature.tabularFigures()], // 确保数字等宽
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
+                      // 圆形进度条 - 使用AnimatedBuilder实现平滑动画
+                      SizedBox(
+                        width: 300,
+                        height: 300,
+                        child: AnimatedBuilder(
+                          animation: _progressAnimation,
+                          builder: (context, child) {
+                            return CircularProgressIndicator(
+                              value: _progressAnimation.value,
+                              strokeWidth: 16,
+                              backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                focusService.state.mode == FocusMode.work
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.tertiary,
+                              ),
+                              strokeCap: StrokeCap.round,
+                            );
+                          },
+                        ),
+                      ),
+                      // 时间文本显示在中心
+                      Text(
+                        focusService.formattedTime,
+                        style: GoogleFonts.montserrat(
+                          fontSize: 72,
+                          fontWeight: FontWeight.w900,
+                          color: focusService.state.mode == FocusMode.work
+                              ? Theme.of(context).colorScheme.onPrimaryContainer
+                              : Theme.of(context).colorScheme.onTertiaryContainer,
+                          fontFeatures: const [FontFeature.tabularFigures()], // 确保数字等宽
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-
-                // Controls area is now removed and handled by a BottomSheet
-                const Spacer(),
-              ],
+              ),
             ),
-          ),
-          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-          floatingActionButton: _buildFabToolbar(currentUiState, focusService),
-        );
-      },
+
+            // Controls area is now removed and handled by a BottomSheet
+            const Spacer(),
+          ],
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: _buildFabToolbar(currentUiState, focusService),
     );
   }
 
@@ -280,7 +274,6 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
 
   // 显示调整时间的BottomSheet
   Future<bool?> _showAdjustmentSheet(FocusService focusService) {
-    if (kDebugMode) print('[FocusView] _showAdjustmentSheet called.');
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,

@@ -179,7 +179,6 @@ class FocusService extends ChangeNotifier {
   }
 
   void pauseFocus() {
-    if (kDebugMode) print('[FocusService] pauseFocus called. Setting UI state to adjusting.');
     if (!_timerService.state.isActive) return; // 如果已经暂停，则不执行操作
 
     _notificationService.cancelOngoingNotification();
