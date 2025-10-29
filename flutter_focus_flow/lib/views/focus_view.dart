@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_focus_flow/services/focus_service.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +18,7 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
   late Tween<double> _progressTween;
   late Animation<double> _progressAnimation;
   bool _isSheetOpen = false; // 防止重复打开工作表的标志
+  bool _isProcessingSheetResult = false; // 标记是否正在处理工作表结果，以避免在处理结果期间响应更多状态变化
 
 
 
@@ -47,21 +49,42 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
   }
 
   void _onFocusServiceStateChanged() async {
-    // 如果状态变为“调整中”且当前没有打开的工作表，则显示工作表
-    if (_focusService.state.uiState == FocusUiState.adjusting && !_isSheetOpen) {
-      _isSheetOpen = true; // 设置标志，表示工作表已打开
-      final result = await _showAdjustmentSheet(_focusService);
-      _isSheetOpen = false; // 重置标志
+    if (kDebugMode) print('[FocusView] State changed to: ${_focusService.state.uiState}, _isSheetOpen: $_isSheetOpen, _isProcessingSheetResult: $_isProcessingSheetResult');
+    // 检查是否当前状态是调整中，同时确保没有工作表已经打开且不在处理结果中
+    if (_focusService.state.uiState == FocusUiState.adjusting && !_isProcessingSheetResult) {
+      // 使用Mutex风格的锁定，确保即使多次调用也不会重复打开bottomsheet
+      if (!_isSheetOpen) {
+        _isSheetOpen = true; // 设置标志，表示工作表已打开
+        _isProcessingSheetResult = true; // 设置标志，表示正在处理工作表结果
+        
+        // 延迟一小段时间再显示bottomsheet，确保状态变更已完成
+        await Future.delayed(const Duration(milliseconds: 50));
+        
+        final result = await _showAdjustmentSheet(_focusService);
+        if (kDebugMode) print('[FocusView] _showAdjustmentSheet returning: $result');
+        
+        // 在异步操作后检查小部件是否仍然挂载
+        if (!mounted) {
+          _isSheetOpen = false; // 重置标志
+          _isProcessingSheetResult = false; // 重置处理结果标志
+          return;
+        }
 
-      // 在异步操作后检查小部件是否仍然挂载
-      if (!mounted) return;
-
-      // 根据工作表返回的结果执行操作
-      if (result == true) {
-        _focusService.applyTimeAdjustment();
+        // 根据工作表返回的结果执行操作
+        if (result == true) {
+          _focusService.applyTimeAdjustment();
+        } else if (result == false) {
+          // 如果用户取消（通过按钮或滑动），则丢弃调整
+          _focusService.discardTimeAdjustment();
+        } 
+        // 如果result为null（例如通过其他方式关闭），不执行任何操作
+        
+        // 重置标志
+        _isSheetOpen = false;
+        _isProcessingSheetResult = false;
       } else {
-        // 如果用户取消（通过按钮或滑动），则丢弃调整
-        _focusService.discardTimeAdjustment();
+        // 如果已经有一个工作表打开，但状态再次变为调整中，我们可能需要处理这种情况
+        if (kDebugMode) print('[FocusView] BottomSheet already open, ignoring state change');
       }
     }
   }
@@ -274,6 +297,7 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
 
   // 显示调整时间的BottomSheet
   Future<bool?> _showAdjustmentSheet(FocusService focusService) {
+    if (kDebugMode) print('[FocusView] _showAdjustmentSheet called.');
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,

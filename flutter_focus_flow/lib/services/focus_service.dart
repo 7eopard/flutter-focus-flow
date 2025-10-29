@@ -179,6 +179,7 @@ class FocusService extends ChangeNotifier {
   }
 
   void pauseFocus() {
+    if (kDebugMode) print('[FocusService] pauseFocus called. Setting UI state to adjusting.');
     if (!_timerService.state.isActive) return; // 如果已经暂停，则不执行操作
 
     _notificationService.cancelOngoingNotification();
@@ -317,12 +318,26 @@ class FocusService extends ChangeNotifier {
       _timerService.setIsBreakUnlocked(isBreakUnlocked);
       _timerService.setHasAppliedAdjustment(_timerService.state.deltaAdjustment != 0); // 设置已应用调整标志
     }
-    startFocus(); // 应用后恢复计时
+    startFocus(); // 应用后恢复计时 - 这是原来的方法
   }
 
   // 丢弃时间调整并恢复计时
   void discardTimeAdjustment() {
-    undo();
+    if (kDebugMode) print('[FocusService] discardTimeAdjustment called.');
+    _timerService.setDeltaAdjustment(0);
+    final restoredState = _undoService.restoreState(); // This will restore the state before pausing
+    notifyListeners();
+    if (kDebugMode) print('[FocusService] After discardTimeAdjustment, UI state: ${_timerService.state.uiState}');
+    
+    // 丢弃调整后，根据恢复的状态决定是否重新开始计时
+    // 如果恢复的状态是运行中，则重新开始计时
+    if (restoredState != null && restoredState.isActive) {
+      startFocus();
+    } else if (_timerService.state.mode == FocusMode.work) {
+      _timerService.setUiState(FocusUiState.pausedFocus);
+    } else {
+      _timerService.setUiState(FocusUiState.pausedRest);
+    }
   }
 
   // 高级休息：将当前时间调整到最小专注时间并立即开始休息
