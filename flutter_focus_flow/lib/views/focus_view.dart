@@ -308,9 +308,9 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
           canPop: false, // 禁止默认返回行为，我们自己处理
           onPopInvokedWithResult: (bool didPop, Object? result) async {
             if (!didPop) { // 如果didPop为false，说明是按下返回键但未退出
-              // 当用户按返回键时，自动丢弃调整
-              focusService.discardTimeAdjustment();
-              Navigator.of(context).pop(); // 再次调用pop来关闭bottom sheet
+              // 当用户按返回键时，只返回false，不直接调用discardTimeAdjustment
+              // 这样可以确保与点击discard按钮走相同的代码路径
+              Navigator.of(context).pop(false); 
             }
           },
           child: Padding(
@@ -389,13 +389,18 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
       },
     );
     
-    // 如果返回值为null（例如通过点击外部区域关闭），则执行丢弃操作
-    if (result == null) {
+    // 根据返回值决定执行什么操作，这样确保所有路径都走相同的逻辑
+    if (result == true) {
+      focusService.applyTimeAdjustment();
+      return true;
+    } else if (result == false) {
       focusService.discardTimeAdjustment();
-      return false; // 返回false表示已丢弃
+      return false;
+    } else {
+      // 如果返回值为null（例如通过点击外部区域关闭），也执行丢弃操作
+      focusService.discardTimeAdjustment();
+      return false;
     }
-    
-    return result;
   }
 
   void _showSetGoalDialog(BuildContext context, FocusService focusService) {
