@@ -291,7 +291,28 @@ class _FocusViewState extends State<FocusView> with TickerProviderStateMixin {
         );
 
       case FocusUiState.pausedFocus:
-        return const SizedBox.shrink();
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            FloatingActionButton(
+              heroTag: 'resume_pause_button',
+              onPressed: focusService.startFocus,
+              tooltip: 'Resume',
+              child: const Icon(Icons.play_arrow),
+            ),
+            const SizedBox(width: 16),
+            FloatingActionButton.extended(
+              heroTag: 'rest_after_pause_button',
+              onPressed: focusService.state.isBreakUnlocked ? focusService.startBreak : null,
+              icon: Icon(focusService.state.isBreakUnlocked ? Icons.free_breakfast : Icons.lock),
+              label: focusService.state.isBreakUnlocked
+                  ? Text('Rest (${(focusService.state.earnedBreakSeconds ~/ 60).toString().padLeft(2, '0')}:${(focusService.state.earnedBreakSeconds % 60).toString().padLeft(2, '0')})')
+                  : const Text('Rest Locked'),
+              backgroundColor: focusService.state.isBreakUnlocked ? null : Theme.of(context).colorScheme.surfaceVariant,
+              foregroundColor: focusService.state.isBreakUnlocked ? null : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ],
+        );
     }
   }
 
